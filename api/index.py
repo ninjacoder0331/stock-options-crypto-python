@@ -6,7 +6,6 @@ from .routes import auth
 from .routes import trader
 from .routes import brokerage
 import os
-import platform
 import re
 import asyncio
 from datetime import datetime
@@ -16,9 +15,9 @@ import requests
 
 # import alpaca_trade_api as tradeapi
 
-from alpaca.trading.client import TradingClient
-from alpaca.trading.enums import OrderSide, TimeInForce
-from alpaca.trading.requests import MarketOrderRequest
+# from alpaca.trading.client import TradingClient
+# from alpaca.trading.enums import OrderSide, TimeInForce
+# from alpaca.trading.requests import MarketOrderRequest
 import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -30,8 +29,7 @@ logger = logging.getLogger(__name__)
 # Load environment variables
 load_dotenv()
 
-alpaca_api= os.getenv("ALPACA_API_KEY")
-alpaca_secret = os.getenv("ALPACA_SECRET_KEY")
+
 
 app = FastAPI()
 
@@ -150,15 +148,27 @@ async def create_order(symbol, quantity, price):
         # Configure Alpaca credentials
         alpaca_api = os.getenv("ALPACA_API_KEY")
         alpaca_secret = os.getenv("ALPACA_SECRET_KEY")
-        trading_client = TradingClient(alpaca_api, alpaca_secret, paper=True)
 
-        market_order_data = MarketOrderRequest(
-            symbol=symbol,
-            qty=quantity,
-            side=OrderSide.BUY,
-            time_in_force=TimeInForce.DAY
-        )
-        market_order = trading_client.submit_order(order_data=market_order_data)
+        url = "https://paper-api.alpaca.markets/v2/orders"
+
+        payload = {
+            "type": "market",
+            "time_in_force": "day",
+            "symbol": symbol,
+            "qty": quantity,
+            "side": "buy"
+        }
+        headers = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "APCA-API-KEY-ID": alpaca_api,
+            "APCA-API-SECRET-KEY": alpaca_secret
+        }
+
+        response = requests.post(url, json=payload, headers=headers)
+
+        print(response.text)
+
         logging.info(f"[{datetime.now()}] Buy order created for symbol: {symbol}, quantity: {quantity}")
         return {"message": "Buy order processed", "buy_result->": "success"}
     except Exception as e:
@@ -182,15 +192,25 @@ async def create_short_stock_order(symbol, quantity, price):
         # Configure Alpaca credentials
         alpaca_api = os.getenv("ALPACA_SHORT_STOCK_API_KEY")
         alpaca_secret = os.getenv("ALPACA_SHORT_STOCK_SECRET_KEY")
-        trading_client = TradingClient(alpaca_api, alpaca_secret, paper=True)
+        url = "https://paper-api.alpaca.markets/v2/orders"
 
-        market_order_data = MarketOrderRequest(
-            symbol=symbol,
-            qty=quantity,
-            side=OrderSide.BUY,
-            time_in_force=TimeInForce.DAY
-        )
-        market_order = trading_client.submit_order(order_data=market_order_data)
+        payload = {
+            "type": "market",
+            "time_in_force": "day",
+            "symbol": symbol,
+            "qty": quantity,
+            "side": "buy"
+        }
+        headers = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "APCA-API-KEY-ID": alpaca_api,
+            "APCA-API-SECRET-KEY": alpaca_secret
+        }
+
+        response = requests.post(url, json=payload, headers=headers)
+
+        print(response.text)
         logging.info(f"[{datetime.now()}] Buy order created for symbol: {symbol}, quantity: {quantity}")
         return {"message": "Buy order processed", "buy_result->": "success"}
     except Exception as e:
@@ -214,15 +234,25 @@ async def create_sell_order(symbol, quantity, price):
         # Configure Alpaca credentials
         alpaca_api = os.getenv("ALPACA_API_KEY")
         alpaca_secret = os.getenv("ALPACA_SECRET_KEY")
-        trading_client = TradingClient(alpaca_api, alpaca_secret, paper=True)
-                
-        market_order_data = MarketOrderRequest(
-            symbol=symbol,
-            qty=quantity,
-            side=OrderSide.SELL,
-            time_in_force=TimeInForce.DAY
-        )
-        market_order = trading_client.submit_order(order_data=market_order_data)
+        url = "https://paper-api.alpaca.markets/v2/orders"
+
+        payload = {
+            "type": "market",
+            "time_in_force": "day",
+            "symbol": symbol,
+            "qty": quantity,
+            "side": "sell"
+        }
+        headers = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "APCA-API-KEY-ID": alpaca_api,
+            "APCA-API-SECRET-KEY": alpaca_secret
+        }
+
+        response = requests.post(url, json=payload, headers=headers)
+
+        print(response.text)
         logging.info(f"[{datetime.now()}] Sell order created for symbol: {symbol}, quantity: {quantity}")
 
         # return market_order
@@ -248,15 +278,25 @@ async def create_short_stock_sell_order(symbol, quantity, price):
         # Configure Alpaca credentials
         alpaca_api = os.getenv("ALPACA_SHORT_STOCK_API_KEY")
         alpaca_secret = os.getenv("ALPACA_SHORT_STOCK_SECRET_KEY")
-        trading_client = TradingClient(alpaca_api, alpaca_secret, paper=True)
-                
-        market_order_data = MarketOrderRequest(
-            symbol=symbol,
-            qty=quantity,
-            side=OrderSide.SELL,
-            time_in_force=TimeInForce.DAY
-        )
-        market_order = trading_client.submit_order(order_data=market_order_data)
+        url = "https://paper-api.alpaca.markets/v2/orders"
+
+        payload = {
+            "type": "market",
+            "time_in_force": "day",
+            "symbol": symbol,
+            "qty": quantity,
+            "side": "sell"
+        }
+        headers = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "APCA-API-KEY-ID": alpaca_api,
+            "APCA-API-SECRET-KEY": alpaca_secret
+        }
+
+        response = requests.post(url, json=payload, headers=headers)
+
+        print(response.text)    
         logging.info(f"[{datetime.now()}] Sell order created for symbol: {symbol}, quantity: {quantity}")
         # return market_order
 
@@ -264,8 +304,7 @@ async def create_short_stock_sell_order(symbol, quantity, price):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-from alpaca.trading.requests import GetAssetsRequest
-from alpaca.trading.enums import AssetClass
+
 
 @app.get("/account")
 async def get_account():
@@ -274,19 +313,35 @@ async def get_account():
     # Configure Alpaca credentials
     alpaca_api = os.getenv("ALPACA_API_KEY")
     alpaca_secret = os.getenv("ALPACA_SECRET_KEY")
-    trading_client = TradingClient(alpaca_api, alpaca_secret, paper=True)
-
-    url = "https://paper-api.alpaca.markets/v2/account"
+    
     headers = {
         "accept": "application/json",
         "APCA-API-KEY-ID": alpaca_api,
         "APCA-API-SECRET-KEY": alpaca_secret
     }
-    myassets = trading_client.get_portfolio_history()
-    myposition = trading_client.get_all_positions()
+    url = "https://paper-api.alpaca.markets/v2/account/portfolio/history?intraday_reporting=market_hours&pnl_reset=per_day"
+
+    headers = {
+        "accept": "application/json",
+        "APCA-API-KEY-ID": alpaca_api,
+        "APCA-API-SECRET-KEY": alpaca_secret
+    }
+
+    response = requests.get(url, headers=headers)
+
+
+    # print("myassets")
+    myassets = response.json()
+    url = "https://paper-api.alpaca.markets/v2/positions"
+
+    response = requests.get(url, headers=headers)
+
+    # print("myposition")
+    myposition = response.json()
+
     # myorders = get_all_orders()
     myorders = await get_all_orders()
-
+    # print("myorders")
     buyOrders = 0
     sellOrders = 0
     buyAmount = 0
@@ -300,18 +355,21 @@ async def get_account():
             sellOrders += 1
             sellAmount += float(order["filled_qty"])
 
-    print("buyOrders", buyOrders)
-    print("sellOrders", sellOrders)
-    print("buyAmount", buyAmount)
-    print("sellAmount", sellAmount)
+    # print("buyOrders", buyOrders)
+    # print("sellOrders", sellOrders)
+    # print("buyAmount", buyAmount)
+    # print("sellAmount", sellAmount)
 
-
+    url = "https://paper-api.alpaca.markets/v2/account"
     response = requests.get(url, headers=headers)
+    # print("response" , response.text)
+
+    account_info = response.json()
     # Combine both responses into a single dictionary
     combined_data = {
         "portfolio_history": myassets,
         "positions": myposition,
-        "account_info": response.json(), 
+        "account_info": account_info, 
         "orders" : myorders,
         "buyOrders" : buyOrders,
         "sellOrders" : sellOrders,
@@ -328,13 +386,14 @@ async def get_all_orders():
         print("get_all_orders")
         
         CHUNK_SIZE = 1000
-
+        alpaca_api= os.getenv("ALPACA_API_KEY")
+        alpaca_secret = os.getenv("ALPACA_SECRET_KEY")
         url = "https://paper-api.alpaca.markets/v2/orders?status=closed&limit=" + str(CHUNK_SIZE)
         headers = {
         "accept": "application/json",
         "APCA-API-KEY-ID": alpaca_api,
         "APCA-API-SECRET-KEY": alpaca_secret
-    }
+        }
 
         response = requests.get(url, headers=headers)
         # print(response.json())
