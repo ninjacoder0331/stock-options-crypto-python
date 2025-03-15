@@ -123,7 +123,7 @@ async def short_stock_signal(signal_request: SignalRequest):
             symbol = parsed_data["symbol"]
             quantity = parsed_data["quantity"]
             price = parsed_data["price"]
-            result = await create_short_stock_sell_order(symbol,quantity, price)
+            result = await create_short_stock_sell_order(symbol, quantity, price)
             return {"message": "Sell order processed", "sell_result->": result}
             
         return {"message": "Signal received", "data": parsed_data}
@@ -182,10 +182,10 @@ async def create_short_stock_order(symbol, quantity, price):
         history_data = {
             "symbol": symbol,
             "quantity": quantity,
-            "price": price,
             "type": "BUY",
             "timestamp": datetime.now()
         }
+        # print("history_data", history_data)
         await stock_history_collection.insert_one(history_data)
         
         # Your existing order logic (currently commented out)
@@ -196,11 +196,12 @@ async def create_short_stock_order(symbol, quantity, price):
 
         payload = {
             "type": "market",
-            "time_in_force": "day",
-            "symbol": symbol,
+            "time_in_force": "gtc",
             "qty": quantity,
+            "symbol": symbol,
             "side": "buy"
         }
+        # print("payload", payload)
         headers = {
             "accept": "application/json",
             "content-type": "application/json",
@@ -278,15 +279,8 @@ async def create_short_stock_sell_order(symbol, quantity, price):
         # Configure Alpaca credentials
         alpaca_api = os.getenv("ALPACA_SHORT_STOCK_API_KEY")
         alpaca_secret = os.getenv("ALPACA_SHORT_STOCK_SECRET_KEY")
-        url = "https://paper-api.alpaca.markets/v2/orders"
+        
 
-        payload = {
-            "type": "market",
-            "time_in_force": "day",
-            "symbol": symbol,
-            "qty": quantity,
-            "side": "sell"
-        }
         headers = {
             "accept": "application/json",
             "content-type": "application/json",
@@ -294,6 +288,27 @@ async def create_short_stock_sell_order(symbol, quantity, price):
             "APCA-API-SECRET-KEY": alpaca_secret
         }
 
+        url = "https://paper-api.alpaca.markets/v2/positions"
+        response = requests.get(url, headers=headers)
+        positions = response.json()
+        qty = 0
+        for position in positions:
+            if position["symbol"] == symbol:
+                qty = position["qty"]
+                break
+        
+        # print("positions", positions)
+        # print("quantity", qty)
+        url = "https://paper-api.alpaca.markets/v2/orders"
+        
+        payload = {
+            "type": "market",
+            "time_in_force": "gtc",
+            "qty": qty,
+            "symbol": symbol,
+            "side": "sell"
+        }
+        
         response = requests.post(url, json=payload, headers=headers)
 
         print(response.text)    
@@ -362,7 +377,7 @@ async def get_account():
 
     url = "https://paper-api.alpaca.markets/v2/account"
     response = requests.get(url, headers=headers)
-    # print("response" , response.text)
+    print("response" , response.text)
 
     account_info = response.json()
     # Combine both responses into a single dictionary
