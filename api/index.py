@@ -79,7 +79,7 @@ async def receive_signal(signal_request: SignalRequest):
         logger.info(f"[{datetime.now()}] Received signal endpoint called with data: {parsed_data}")
         
         # Handle buy signals
-        if parsed_data["signal_type"] == "buyOrder":
+        if parsed_data["signal_type"] == "buy":
             symbol = parsed_data["symbol"]
             quantity = parsed_data["quantity"]
             price = parsed_data["price"]
@@ -88,7 +88,7 @@ async def receive_signal(signal_request: SignalRequest):
             return {"message": "Buy order processed", "buy_result->": result}
         
         # Handle sell signals
-        elif parsed_data["signal_type"] == "sellOrder":
+        elif parsed_data["signal_type"] == "sell":
             # Your sell order logic here
             print("sellOrder--------->occured")
             symbol = parsed_data["symbol"]
