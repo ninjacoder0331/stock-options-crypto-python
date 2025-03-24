@@ -42,10 +42,6 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
-
-
-
-
 class SignalRequest(BaseModel):
     message: str
 
@@ -127,6 +123,124 @@ async def short_stock_signal(signal_request: SignalRequest):
             return {"message": "Sell order processed", "sell_result->": result}
             
         return {"message": "Signal received", "data": parsed_data}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/optionsSignal")
+async def options_signal(signal_request: SignalRequest):
+    try:
+        parsed_data = signal_request.parse_signal()
+        logger.info(f"[{datetime.now()}] Received signal endpoint called with data: {parsed_data}")
+        
+        # Handle buy signals
+        if parsed_data["signal_type"] == "buy":
+            symbol = parsed_data["symbol"]
+            quantity = parsed_data["quantity"]
+            price = parsed_data["price"]
+            # Your buy order logic here
+            result = await create_options_buy_order(symbol,quantity,price)
+            return {"message": "Buy order processed", "buy_result->": result}
+        
+        # Handle sell signals
+        elif parsed_data["signal_type"] == "sell":
+            # Your sell order logic here
+            print("sellOrder--------->occured")
+            symbol = parsed_data["symbol"]
+            quantity = parsed_data["quantity"]
+            price = parsed_data["price"]
+            result = await create_options_sell_order(symbol, quantity, price)
+            return {"message": "Sell order processed", "sell_result->": result}
+            
+        return {"message": "Signal received", "data": parsed_data}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+def create_options_buy_order(symbol, quantity, price):
+    try :
+        # Configure Alpaca credentials
+        alpaca_api = os.getenv("ALPACA_OPTIONS_API_KEY")
+        alpaca_secret = os.getenv("ALPACA_OPTIONS_SECRET_KEY")
+
+        url = "https://paper-api.alpaca.markets/v2/orders"
+
+        payload = {
+            "type": "market",
+            "time_in_force": "day",
+            "symbol": symbol,
+            "qty": quantity,
+            "side": "buy"
+        }
+
+        headers = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "APCA-API-KEY-ID": alpaca_api,
+            "APCA-API-SECRET-KEY": alpaca_secret
+        }
+
+        response = requests.post(url, json=payload, headers=headers)
+
+        print(response.text)
+
+        logging.info(f"[{datetime.now()}] Buy order created for symbol: {symbol}, quantity: {quantity}")
+        return {"message": "Buy order processed", "buy_result->": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+def create_options_sell_order(symbol, quantity, price):
+    try:
+
+        # Save to stockHistory collection
+        # stock_history_collection = await get_database("stockHistory")
+        # history_data = {
+        #     "symbol": symbol,
+        #     "quantity": quantity,
+        #     "price": price,
+        #     "type": "SELL",
+        #     "timestamp": datetime.now()
+        # }
+        # await stock_history_collection.insert_one(history_data)
+
+        # Configure Alpaca credentials
+        alpaca_api = os.getenv("ALPACA_OPTIONS_API_KEY")
+        alpaca_secret = os.getenv("ALPACA_OPTIONS_SECRET_KEY")
+        
+
+        headers = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "APCA-API-KEY-ID": alpaca_api,
+            "APCA-API-SECRET-KEY": alpaca_secret
+        }
+
+        url = "https://paper-api.alpaca.markets/v2/positions"
+        response = requests.get(url, headers=headers)
+        positions = response.json()
+        qty = 0
+        for position in positions:
+            if position["symbol"] == symbol:
+                qty = position["qty"]
+                break
+        
+        # print("positions", positions)
+        # print("quantity", qty)
+        url = "https://paper-api.alpaca.markets/v2/orders"
+        
+        payload = {
+            "type": "market",
+            "time_in_force": "gtc",
+            "qty": qty,
+            "symbol": symbol,
+            "side": "sell"
+        }
+        
+        response = requests.post(url, json=payload, headers=headers)
+
+        print(response.text)    
+        logging.info(f"[{datetime.now()}] Sell order created for symbol: {symbol}, quantity: {quantity}")
+        # return market_order
+
+        return {"message": "Sell order processed", "sell_result->": "success"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -320,7 +434,6 @@ async def create_short_stock_sell_order(symbol, quantity, price):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-
 @app.get("/account")
 async def get_account():
     logger.info(f"[{datetime.now()}] Account endpoint called")
@@ -418,7 +531,6 @@ async def get_all_orders():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @app.get("/test")
 async def test_endpoint():
     print("test")
@@ -430,8 +542,6 @@ async def test_endpoint():
 app.include_router(auth.router, prefix="/api/auth")
 app.include_router(trader.router, prefix="/api/trader")
 app.include_router(brokerage.router, prefix="/api/brokerage")
-
-
 
 @app.get("/")
 async def read_root():
@@ -450,7 +560,6 @@ async def get_items():
         # return {"message": "Hello World"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 # Example endpoint to create an item
 @app.post("/items")
