@@ -3,6 +3,11 @@ from ..database import get_database
 from bson import ObjectId
 from pydantic import BaseModel
 from ..models.brokerage import Brokerage
+import os
+import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 router = APIRouter()
 
@@ -22,6 +27,8 @@ async def get_traders():
     except Exception as e:
         print(f"Error fetching traders: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to fetch traders")
+
+# using another api key and secret key for options trading |  stock trading is using another api key and secret key
 
 @router.get("/getAnalysts")
 async def get_analysts():
@@ -55,4 +62,31 @@ async def update_brokerage(brokerage: UpdateBrokerage):
     except Exception as e:
         print(f"Error updating brokerage: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to update brokerage")
+    
+# using another api key and secret key for options trading |  stock trading is using another api key and secret key
+
+@router.get("/openpositions")
+async def get_open_positions():
+    try:
+        # print("openpositions")
+        
+        CHUNK_SIZE = 1000
+        alpaca_api= os.getenv("ALPACA_OPTIONS_API_KEY")
+        alpaca_secret = os.getenv("ALPACA_OPTIONS_SECRET_KEY")
+        url = "https://paper-api.alpaca.markets/v2/orders?status=closed&limit=" + str(CHUNK_SIZE)
+        headers = {
+        "accept": "application/json",
+        "APCA-API-KEY-ID": alpaca_api,
+        "APCA-API-SECRET-KEY": alpaca_secret
+        }
+
+        response = requests.get(url, headers=headers)
+        # print(response.json())
+        # response = trading_client.get_orders()
+        orders = response.json()
+        # print("orders", orders)
+        return orders
+    except Exception as e:
+        print(f"Error fetching open positions: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch open positions")
 
