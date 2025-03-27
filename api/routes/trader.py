@@ -65,7 +65,7 @@ async def update_brokerage(brokerage: UpdateBrokerage):
     
 # using another api key and secret key for options trading |  stock trading is using another api key and secret key
 
-@router.get("/openpositions")
+@router.get("/closedpositions")
 async def get_open_positions():
     try:
         # print("openpositions")
@@ -90,3 +90,134 @@ async def get_open_positions():
         print(f"Error fetching open positions: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to fetch open positions")
 
+@router.get("/openpositions")
+async def get_open_positions():
+    try:
+        # print("openpositions")
+        
+        CHUNK_SIZE = 1000
+        alpaca_api= os.getenv("ALPACA_OPTIONS_API_KEY")
+        alpaca_secret = os.getenv("ALPACA_OPTIONS_SECRET_KEY")
+        # url = "https://paper-api.alpaca.markets/v2/orders?status=closed&limit=" + str(CHUNK_SIZE)
+        
+        url = "https://paper-api.alpaca.markets/v2/positions"
+        headers = {
+        "accept": "application/json",
+        "APCA-API-KEY-ID": alpaca_api,
+        "APCA-API-SECRET-KEY": alpaca_secret
+        }
+
+        response = requests.get(url, headers=headers)
+        options_open_positions = response.json()
+        # print(response.json())
+        # response = trading_client.get_orders()
+        orders = response.json()
+
+        alpaca_api= os.getenv("ALPACA_API_KEY")
+        alpaca_secret = os.getenv("ALPACA_SECRET_KEY")
+        headers = {
+        "accept": "application/json",
+        "APCA-API-KEY-ID": alpaca_api,
+        "APCA-API-SECRET-KEY": alpaca_secret
+        }
+        url = "https://paper-api.alpaca.markets/v2/positions"
+        response = requests.get(url, headers=headers)
+        stock_open_positions = response.json()
+
+        # print("stock orders", response.json())
+        # print("orders", orders)
+        return_result = {
+            "options" : options_open_positions,
+            "stocks" : stock_open_positions
+        }
+        return return_result
+    except Exception as e:
+        print(f"Error fetching open positions: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch open positions")
+
+class SellOptionsOrder(BaseModel):
+    symbol: str
+    side : str
+    quantity: int
+
+# test this api
+
+@router.post("/sellOptionsOrder")
+async def sell_options_order(order: SellOptionsOrder):
+    try:
+        print("sellOptionsOrder")
+        # print(order)
+        alpaca_api= os.getenv("ALPACA_OPTIONS_API_KEY")
+        alpaca_secret = os.getenv("ALPACA_OPTIONS_SECRET_KEY")
+        buy_sell_side = "sell"
+        if order.side == "Short":
+            buy_sell_side = "buy"
+        
+        payload = {
+            "type": "market",
+            "time_in_force": "day",
+            "symbol": order.symbol,
+            "qty":  order.quantity,
+            "side": buy_sell_side,
+        }
+        
+        print("payload" , payload)
+        headers = {
+                    "accept": "application/json",
+                    "content-type": "application/json",
+                    "APCA-API-KEY-ID": alpaca_api ,
+                    "APCA-API-SECRET-KEY": alpaca_secret
+                }
+        url = "https://paper-api.alpaca.markets/v2/orders"
+
+        response = requests.post(url, json=payload, headers=headers)
+        print(response.status_code)
+        print(response.json())
+
+        return response.status_code
+    except Exception as e:
+        print(f"Error selling options order: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to sell options order")
+
+class CloseStockOrder(BaseModel):
+    symbol: str
+    side : str
+    quantity: int
+
+@router.post("/closeStockOrder")
+async def close_stock_order(order: CloseStockOrder):
+    try:
+        print("sellOptionsOrder")
+        # print(order)
+        alpaca_api= os.getenv("ALPACA_API_KEY")
+        alpaca_secret = os.getenv("ALPACA_SECRET_KEY")
+
+        buy_sell_side = "sell"
+        if order.side == "Short":
+            buy_sell_side = "buy"
+        
+        payload = {
+            "type": "market",
+            "time_in_force": "day",
+            "symbol": order.symbol,
+            "qty":  order.quantity,
+            "side": buy_sell_side,
+        }
+        
+        print("payload" , payload)
+        headers = {
+                    "accept": "application/json",
+                    "content-type": "application/json",
+                    "APCA-API-KEY-ID": alpaca_api ,
+                    "APCA-API-SECRET-KEY": alpaca_secret
+                }
+        url = "https://paper-api.alpaca.markets/v2/orders"
+
+        response = requests.post(url, json=payload, headers=headers)
+        print(response.status_code)
+        # print(response.json())
+
+        return response.status_code
+    except Exception as e:
+        print(f"Error selling options order: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to sell options order")

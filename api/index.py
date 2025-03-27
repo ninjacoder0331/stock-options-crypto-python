@@ -148,16 +148,52 @@ async def options_trading(signal_request: OptionsSignal):
         # Handle buy signals
         if signal_request.action == "OPEN":
             print("open signal")
+            options_collection = await get_database("optionsDatabase")
+            options_data = {
+                "sell_symbol": sell_symbol,
+                "buy_symbol": buy_symbol,
+                "quantity": signal_request.quantity,
+                "action": signal_request.action,
+                "strategy": signal_request.strategy,
+                "reason": signal_request.reason,
+                "status" : "open"
+            }
+
+            await options_collection.insert_one(options_data)
+
             quantity = signal_request.quantity
+
             # Your buy order logic here
             result = await create_options_buy_order(sell_symbol,buy_symbol,quantity)
             return {"message": "Buy order processed", "buy_result->": result}
-        
+
         # Handle sell signals
         elif signal_request.action == "CLOSE":
             # Your sell order logic here
             print("close signal")
-            quantity = signal_request.quantity
+
+            options_collection = await get_database("optionsDatabase")
+            options_data = await options_collection.find_one(
+                {"status" : "open"}
+            )
+
+            print("options_data", options_data)
+
+            sell_symbol = options_data["sell_symbol"]
+            buy_symbol = options_data["buy_symbol"]
+            quantity = options_data["quantity"]
+
+            options_collection.update_one(
+                {"_id" : options_data["_id"]},
+                {"$set" : {"status" : "closed"}}
+            )
+
+            print("sell_symbol", sell_symbol)
+            print("buy_symbol", buy_symbol)
+            print("quantity", quantity)
+
+
+            # quantity = signal_request.quantity
             result = await create_options_sell_order(sell_symbol,buy_symbol,quantity)
             return {"message": "Sell order processed", "sell_result->": result}
             
@@ -221,17 +257,17 @@ async def create_options_sell_order(sell_symbol, buy_symbol, quantity):
         
         sell_payload = { 
             "type": "market",
-            "time_in_force": "gtc",
-            "qty": quantity,
+            "time_in_force": "day",
             "symbol": sell_symbol,
+            "qty": quantity,
             "side": "buy"
         }
 
         buy_payload = {
             "type": "market",
-            "time_in_force": "gtc",
-            "qty": quantity,
+            "time_in_force": "day",
             "symbol": buy_symbol,
+            "qty": quantity,
             "side": "sell"
         }
 
@@ -242,11 +278,15 @@ async def create_options_sell_order(sell_symbol, buy_symbol, quantity):
             "APCA-API-SECRET-KEY": alpaca_secret
         }
 
-        response = await requests.post(url, json=sell_payload, headers=headers)
-        print(response.text)
 
-        response = await requests.post(url, json=buy_payload, headers=headers)
-        print(response.text)
+        print("sell_payload", sell_payload)
+        print("buy_payload", buy_payload)
+        response = requests.post(url, json=buy_payload, headers=headers)
+        print("response2", response.status_code)
+        response = requests.post(url, json=sell_payload, headers=headers)
+        print("response1", response.status_code)
+
+        
 
 
         logging.info(f"[{datetime.now()}] Sell order created for symbol: {sell_symbol}, quantity: {quantity}")
