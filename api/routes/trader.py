@@ -160,6 +160,7 @@ async def sell_options_order(order: SellOptionsOrder):
             "qty":  order.quantity,
             "side": buy_sell_side,
         }
+        
         print("payload" , payload)
         headers = {
                     "accept": "application/json",
@@ -173,8 +174,50 @@ async def sell_options_order(order: SellOptionsOrder):
         print(response.status_code)
         print(response.json())
 
-        return {"message": "Sell options order created successfully"}
+        return response.status_code
     except Exception as e:
         print(f"Error selling options order: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to sell options order")
 
+class CloseStockOrder(BaseModel):
+    symbol: str
+    side : str
+    quantity: int
+
+@router.post("/closeStockOrder")
+async def close_stock_order(order: CloseStockOrder):
+    try:
+        print("sellOptionsOrder")
+        # print(order)
+        alpaca_api= os.getenv("ALPACA_API_KEY")
+        alpaca_secret = os.getenv("ALPACA_SECRET_KEY")
+
+        buy_sell_side = "sell"
+        if order.side == "Short":
+            buy_sell_side = "buy"
+        
+        payload = {
+            "type": "market",
+            "time_in_force": "day",
+            "symbol": order.symbol,
+            "qty":  order.quantity,
+            "side": buy_sell_side,
+        }
+        
+        print("payload" , payload)
+        headers = {
+                    "accept": "application/json",
+                    "content-type": "application/json",
+                    "APCA-API-KEY-ID": alpaca_api ,
+                    "APCA-API-SECRET-KEY": alpaca_secret
+                }
+        url = "https://paper-api.alpaca.markets/v2/orders"
+
+        response = requests.post(url, json=payload, headers=headers)
+        print(response.status_code)
+        # print(response.json())
+
+        return response.status_code
+    except Exception as e:
+        print(f"Error selling options order: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to sell options order")
