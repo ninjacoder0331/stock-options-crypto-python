@@ -143,6 +143,7 @@ async def options_trading(signal_request: OptionsSignal):
         print("signal_request", signal_request)
         sell_symbol = signal_request.options.sell_close
         buy_symbol = signal_request.options.buy_close
+        quantity = signal_request.quantity
         
         # Handle buy signals
         if signal_request.action == "OPEN":
@@ -168,7 +169,7 @@ async def options_trading(signal_request: OptionsSignal):
                 buy_symbol = options_data["buy_symbol"]
                 quantity = options_data["quantity"]
                 result = await create_options_sell_order(sell_symbol,buy_symbol,quantity , signal_request.strategy , signal_request.reason)
-                
+
             return {"message": "Sell order processed", "sell_result->": result}
             
         return {"message": "Signal received", "data": result}
@@ -258,8 +259,9 @@ async def create_options_sell_order(sell_symbol, buy_symbol, quantity , strategy
         alpaca_api = os.getenv("ALPACA_OPTIONS_API_KEY")
         alpaca_secret = os.getenv("ALPACA_OPTIONS_SECRET_KEY")
         
-        # print("positions", positions)
-        # print("quantity", qty)
+        print("sell_symbol", sell_symbol)
+        print("buy_symbol", buy_symbol)
+        print("quantity", quantity)
         url = "https://paper-api.alpaca.markets/v2/orders"
         
         sell_payload = { 
