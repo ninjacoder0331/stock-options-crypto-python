@@ -150,18 +150,20 @@ async def sell_options_order(order: SellOptionsOrder):
         alpaca_api= os.getenv("ALPACA_OPTIONS_API_KEY")
         alpaca_secret = os.getenv("ALPACA_OPTIONS_SECRET_KEY")
         buy_sell_side = "sell"
-        if order.side == "Short":
+        if order.side == "short":
             buy_sell_side = "buy"
+        elif order.side == "long":
+            buy_sell_side = "sell"
         
         payload = {
             "type": "market",
             "time_in_force": "day",
             "symbol": order.symbol,
-            "qty":  order.quantity,
+            "qty":  abs(order.quantity),
             "side": buy_sell_side,
         }
         
-        print("payload" , payload)
+        # print("payload" , payload)
         headers = {
                     "accept": "application/json",
                     "content-type": "application/json",
@@ -172,7 +174,7 @@ async def sell_options_order(order: SellOptionsOrder):
 
         response = requests.post(url, json=payload, headers=headers)
         print(response.status_code)
-        print(response.json())
+        # print(response.json())
 
         return response.status_code
     except Exception as e:
@@ -193,14 +195,16 @@ async def close_stock_order(order: CloseStockOrder):
         alpaca_secret = os.getenv("ALPACA_SECRET_KEY")
 
         buy_sell_side = "sell"
-        if order.side == "Short":
+        if order.side == "short":
             buy_sell_side = "buy"
+        elif order.side == "long":
+            buy_sell_side = "sell"
         
         payload = {
             "type": "market",
             "time_in_force": "day",
             "symbol": order.symbol,
-            "qty":  order.quantity,
+            "qty":  abs(order.quantity),
             "side": buy_sell_side,
         }
         

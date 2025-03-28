@@ -139,7 +139,6 @@ class OptionsSignal(BaseModel):
 
 @app.post("/optionsTrading")
 async def options_trading(signal_request: OptionsSignal):
-
     try:
         print("signal_request", signal_request)
         sell_symbol = signal_request.options.sell_close
@@ -148,23 +147,9 @@ async def options_trading(signal_request: OptionsSignal):
         # Handle buy signals
         if signal_request.action == "OPEN":
             print("open signal")
-            options_collection = await get_database("optionsDatabase")
-            options_data = {
-                "sell_symbol": sell_symbol,
-                "buy_symbol": buy_symbol,
-                "quantity": signal_request.quantity,
-                "action": signal_request.action,
-                "strategy": signal_request.strategy,
-                "reason": signal_request.reason,
-                "status" : "open"
-            }
-
-            await options_collection.insert_one(options_data)
-
-            quantity = signal_request.quantity
 
             # Your buy order logic here
-            result = await create_options_buy_order(sell_symbol,buy_symbol,quantity)
+            result = await create_options_buy_order(sell_symbol,buy_symbol,quantity , signal_request.strategy , signal_request.reason)
             return {"message": "Buy order processed", "buy_result->": result}
 
         # Handle sell signals
@@ -178,30 +163,19 @@ async def options_trading(signal_request: OptionsSignal):
             )
 
             print("options_data", options_data)
-
-            sell_symbol = options_data["sell_symbol"]
-            buy_symbol = options_data["buy_symbol"]
-            quantity = options_data["quantity"]
-
-            options_collection.update_one(
-                {"_id" : options_data["_id"]},
-                {"$set" : {"status" : "closed"}}
-            )
-
-            print("sell_symbol", sell_symbol)
-            print("buy_symbol", buy_symbol)
-            print("quantity", quantity)
-
-
-            # quantity = signal_request.quantity
-            result = await create_options_sell_order(sell_symbol,buy_symbol,quantity)
+            if options_data:
+                sell_symbol = options_data["sell_symbol"]
+                buy_symbol = options_data["buy_symbol"]
+                quantity = options_data["quantity"]
+                result = await create_options_sell_order(sell_symbol,buy_symbol,quantity , signal_request.strategy , signal_request.reason)
+                
             return {"message": "Sell order processed", "sell_result->": result}
             
         return {"message": "Signal received", "data": result}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-async def create_options_buy_order(sell_symbol, buy_symbol, quantity):
+async def create_options_buy_order(sell_symbol, buy_symbol, quantity , strategy , reason):
     try :
         # Configure Alpaca credentials
         alpaca_api = os.getenv("ALPACA_OPTIONS_API_KEY")
@@ -236,16 +210,49 @@ async def create_options_buy_order(sell_symbol, buy_symbol, quantity):
         print("buy_payload", buy_payload)
 
         response = requests.post(url, json=sell_payload, headers=headers)
+        first_result_status = response.status_code
+        times = 10;
+        while first_result_status != 200 and times > 0:
+            response = requests.post(url, json=sell_payload, headers=headers)
+            first_result_status = response.status_code
+            times -= 1
+        
         print(response.status_code)
+        print("first time" , times)
 
         response = requests.post(url, json=buy_payload, headers=headers)
+        second_result_status = response.status_code
+        times = 10;
+        while second_result_status != 200 and times > 0:
+            response = requests.post(url, json=buy_payload, headers=headers)
+            second_result_status = response.status_code
+            times -= 1
+
         print(response.status_code)
+        print("second time" , times)
+
+        if first_result_status == 200 and second_result_status == 200:
+
+            options_collection = await get_database("optionsDatabase")
+            options_data = {
+                "sell_symbol": sell_symbol,
+                "buy_symbol": buy_symbol,
+                "quantity": quantity,
+                "action": "OPEN",
+                "strategy": strategy,
+                "reason": reason,
+                "status" : "open"
+            }
+
+            await options_collection.insert_one(options_data)
+
+
 
         return {"message": "Buy order processed", "buy_result->": "success"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-async def create_options_sell_order(sell_symbol, buy_symbol, quantity):
+async def create_options_sell_order(sell_symbol, buy_symbol, quantity , strategy , reason):
     try:
         # Configure Alpaca credentials
         alpaca_api = os.getenv("ALPACA_OPTIONS_API_KEY")
@@ -282,13 +289,31 @@ async def create_options_sell_order(sell_symbol, buy_symbol, quantity):
         print("sell_payload", sell_payload)
         print("buy_payload", buy_payload)
         response = requests.post(url, json=buy_payload, headers=headers)
-        print("response2", response.status_code)
+        first_result_status = response.status_code
+        times = 10;
+        while first_result_status != 200 and times > 0:
+            response = requests.post(url, json=buy_payload, headers=headers)
+            first_result_status = response.status_code
+            times -= 1
+        # print("response2", first_result_status)
+        print("second time" , times)
+
         response = requests.post(url, json=sell_payload, headers=headers)
-        print("response1", response.status_code)
+        second_result_status = response.status_code
+        times = 10;
+        while second_result_status != 200 and times > 0:
+            response = requests.post(url, json=sell_payload, headers=headers)
+            second_result_status = response.status_code
+            times -= 1
+        # print("response1", response.status_code)
+        print("first time" , times)
 
-        
-
-
+        if first_result_status == 200 and second_result_status == 200:
+            options_collection = await get_database("optionsDatabase")
+            options_collection.update_one(
+                {"status" : "open"},
+                {"$set" : {"status" : "closed"}}
+            )
         logging.info(f"[{datetime.now()}] Sell order created for symbol: {sell_symbol}, quantity: {quantity}")
         # return market_order
 
