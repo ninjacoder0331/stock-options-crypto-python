@@ -659,6 +659,40 @@ async def buySellOrder(buySellOrder: BuySellOrder):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/getSettings")
+async def getSettings():
+    try:
+        settings_collection = await get_database("settings")
+        settings = await settings_collection.find_one({})
+
+        if(settings == None):
+            settings = {
+                "stockAmount" : 0,
+                "optionsAmount" : 0,
+            }
+        else:
+            settings = {
+                "stockAmount" : settings["stockAmount"],
+                "optionsAmount" : settings["optionsAmount"],
+            }
+
+        return settings
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class Settings(BaseModel):  
+    stockAmount: float
+    optionsAmount: float
+
+@app.post("/saveSettings")
+async def saveSettings(settings: Settings):
+    try:
+        settings_collection = await get_database("settings")
+        await settings_collection.update_one({}, {"$set": settings.model_dump()}, upsert=True)
+        return 200
+    except Exception as e:  
+        raise HTTPException(status_code=500, detail=str(e))
+    
 async def auto_sell_options(option_symbol , left_amount):
     try:
         api_key = os.getenv("ALPACA_OPTIONS_API_KEY")
@@ -689,7 +723,7 @@ async def auto_sell_options(option_symbol , left_amount):
         return response.json()
     except Exception as e:
         print(f"Error in auto sell options: {e}")
-   
+
 
 async def check_market_time():
     try:
