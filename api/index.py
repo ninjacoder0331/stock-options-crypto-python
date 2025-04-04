@@ -8,10 +8,14 @@ from .routes import brokerage
 import os
 import re
 import asyncio
-from datetime import datetime
 from .database import get_database
 from pydantic import BaseModel
 import requests
+import ntplib
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from .routes.utils import parse_option_date
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 # import alpaca_trade_api as tradeapi
 
@@ -22,11 +26,6 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# if platform.system()=='Windows':
-#     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-# else:
-#     asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
-# Load environment variables
 load_dotenv()
 
 
@@ -145,11 +144,9 @@ async def options_trading(signal_request: OptionsSignal):
         buy_symbol = signal_request.options.buy_close
         quantity = signal_request.quantity
         
-        # Handle buy signals
         if signal_request.action == "OPEN":
             print("open signal")
 
-            # Your buy order logic here
             result = await create_options_buy_order(sell_symbol,buy_symbol,quantity , signal_request.strategy , signal_request.reason)
             return {"message": "Buy order processed", "buy_result->": result}
 
@@ -662,4 +659,147 @@ async def buySellOrder(buySellOrder: BuySellOrder):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+async def auto_sell_options(option_symbol , left_amount):
+    try:
+        api_key = os.getenv("ALPACA_OPTIONS_API_KEY")
+        api_secret = os.getenv("ALPACA_OPTIONS_SECRET_KEY")
+        headers = {
+            "APCA-API-KEY-ID": api_key,
+            "APCA-API-SECRET-KEY": api_secret,
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        }
+        url = "https://paper-api.alpaca.markets/v2/orders"
 
+        side = "sell"
+        if left_amount < 0:
+            side = "buy"
+        else:
+            side = "sell"
+
+        payload = {
+            "type": "market",
+            "time_in_force": "day",
+            "symbol": option_symbol,
+            "qty": abs(left_amount),
+            "side": side,
+        }
+        print("payload", payload)
+        response = requests.post(url, headers=headers, json=payload)
+        return response.json()
+    except Exception as e:
+        print(f"Error in auto sell options: {e}")
+   
+
+async def check_market_time():
+    try:
+        # Get time from NTP server
+        ntp_client = ntplib.NTPClient()
+        response = ntp_client.request('pool.ntp.org')
+        # Convert NTP time to datetime and set timezone to ET
+        current_time = datetime.fromtimestamp(response.tx_time, ZoneInfo("America/New_York"))
+    except Exception as e:
+        print(f"Error getting NTP time: {e}")
+        # Fallback to local time if NTP fails
+        current_time = datetime.now(ZoneInfo("America/New_York"))
+
+    print("current_time: ", current_time)
+    
+    # Check if it's a weekday (0 = Monday, 6 = Sunday)
+    if current_time.weekday() >= 5:  # Saturday or Sunday
+        return False
+    
+    # Create time objects for market open and close
+    market_open = current_time.replace(hour=9, minute=30, second=0, microsecond=0)
+    market_close = current_time.replace(hour=16, minute=0, second=0, microsecond=0)
+    
+    # Check if current time is within market hours
+    is_market_open = market_open <= current_time <= market_close
+    return is_market_open
+
+async def check_date_expired(option_symbol , left_amount):
+    try:
+        print("options symbol" , option_symbol)
+        month, date = parse_option_date(option_symbol)
+        try:
+            # Get time from NTP server
+            ntp_client = ntplib.NTPClient()
+            response = ntp_client.request('pool.ntp.org')
+            # Convert NTP time to datetime and set timezone to ET
+            current_time = datetime.fromtimestamp(response.tx_time, ZoneInfo("America/New_York"))
+        except Exception as e:
+            print(f"Error getting NTP time: {e}")
+            # Fallback to local time if NTP fails
+            current_time = datetime.now(ZoneInfo("America/New_York"))
+            
+        # Create expiration date object (40 minutes before market close)
+        expiration_date = current_time.replace(month=int(month), day=int(date), hour=15, minute=20, second=0, microsecond=0)
+        
+        # Check if current time is on expiration date and 40 minutes before close
+        if current_time.date() == expiration_date.date() and current_time >= expiration_date:
+            print(f"Option {option_symbol} is 40 minutes before market close on expiration date")
+            await auto_sell_options(option_symbol , left_amount)
+            return True
+        else:
+            print(f"Current time: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
+            print(f"Expiration check time: {expiration_date.strftime('%Y-%m-%d %H:%M:%S')}")
+            return False
+            
+    except Exception as e:
+        print(f"Error in date expired check: {e}")
+        return False
+
+
+async def check_funtion():
+    try:
+        # First check if market is open
+        is_market_open = await check_market_time()
+        if not is_market_open:
+            print("Market is closed. Skipping position checks.")
+
+            # return "Market is closed"
+        else : 
+            print("Market is open")
+
+        api_key = os.getenv("ALPACA_OPTIONS_API_KEY")
+        api_secret = os.getenv("ALPACA_OPTIONS_SECRET_KEY")
+
+        url = "https://paper-api.alpaca.markets/v2/positions"
+
+        headers = {
+            "accept": "application/json",
+            "APCA-API-KEY-ID": api_key,
+            "APCA-API-SECRET-KEY": api_secret
+        }
+
+        response = requests.get(url, headers=headers)
+        for position in response.json():  # assuming 'positions' is your JSON array
+            symbol = position["symbol"]
+            print("qty", position["qty"])
+            if position["asset_class"] != "us_option":
+                await check_date_expired(symbol , position["qty"])
+
+        return "Function executed successfully"
+    except Exception as e:
+        print(f"Error in function: {str(e)}")
+        return "Error occurred"
+
+scheduler = AsyncIOScheduler()
+
+scheduler.add_job(
+    check_funtion,
+    trigger='interval',
+    seconds=20,     # Run every 5 seconds
+    timezone=ZoneInfo("America/New_York"),  # ET timezone
+    misfire_grace_time=None  # Optional: handle misfired jobs
+)
+
+# Start the scheduler when the application starts
+@app.on_event("startup")
+async def start_scheduler():
+    scheduler.start()
+
+# Shutdown the scheduler when the application stops
+@app.on_event("shutdown")
+async def shutdown_scheduler():
+    scheduler.shutdown()
