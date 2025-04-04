@@ -72,6 +72,9 @@ async def receive_signal(signal_request: SignalRequest):
     try:
         parsed_data = signal_request.parse_signal()
         logger.info(f"[{datetime.now()}] Received signal endpoint called with data: {parsed_data}")
+        settings = await get_settings()
+        stock_amount = settings["stockAmount"]
+        options_amount = settings["optionsAmount"]
         
         # Handle buy signals
         if parsed_data["signal_type"] == "buy":
@@ -79,7 +82,7 @@ async def receive_signal(signal_request: SignalRequest):
             quantity = parsed_data["quantity"]
             price = parsed_data["price"]
             # Your buy order logic here
-            result = await create_order(symbol,quantity,price)
+            result = await create_order(symbol,stock_amount,price)
             return {"message": "Buy order processed", "buy_result->": result}
         
         # Handle sell signals
@@ -89,7 +92,7 @@ async def receive_signal(signal_request: SignalRequest):
             symbol = parsed_data["symbol"]
             quantity = parsed_data["quantity"]
             price = parsed_data["price"]
-            result = await create_sell_order(symbol,quantity, price)
+            result = await create_sell_order(symbol,stock_amount, price)
             return {"message": "Sell order processed", "sell_result->": result}
             
         return {"message": "Signal received", "data": parsed_data}
@@ -136,18 +139,31 @@ class OptionsSignal(BaseModel):
     options: OptionsData
     reason: str
 
+async def get_settings():
+    try:
+        settings_collection = await get_database("settings")
+        settings = await settings_collection.find_one({})
+        return settings
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/optionsTrading")
 async def options_trading(signal_request: OptionsSignal):
     try:
         print("signal_request", signal_request)
         sell_symbol = signal_request.options.sell_close
         buy_symbol = signal_request.options.buy_close
-        quantity = signal_request.quantity
+
+        settings = await get_settings()
+        stock_amount = settings["stockAmount"]
+        options_amount = settings["optionsAmount"]
+
+        # return {"stock_amount": stock_amount, "options_amount": options_amount}
+        # quantity = signal_request.quantity
         
         if signal_request.action == "OPEN":
             print("open signal")
-
-            result = await create_options_buy_order(sell_symbol,buy_symbol,quantity , signal_request.strategy , signal_request.reason)
+            result = await create_options_buy_order(sell_symbol,buy_symbol,options_amount , signal_request.strategy , signal_request.reason)
             return {"message": "Buy order processed", "buy_result->": result}
 
         # Handle sell signals
@@ -165,7 +181,7 @@ async def options_trading(signal_request: OptionsSignal):
                 sell_symbol = options_data["sell_symbol"]
                 buy_symbol = options_data["buy_symbol"]
                 quantity = options_data["quantity"]
-                result = await create_options_sell_order(sell_symbol,buy_symbol,quantity , signal_request.strategy , signal_request.reason)
+                result = await create_options_sell_order(sell_symbol,buy_symbol,options_amount , signal_request.strategy , signal_request.reason)
 
             return {"message": "Sell order processed", "sell_result->": result}
             
