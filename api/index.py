@@ -223,16 +223,6 @@ async def create_options_buy_order(sell_symbol, buy_symbol, quantity , strategy 
         print("sell_payload", sell_payload)
         print("buy_payload", buy_payload)
 
-        response = requests.post(url, json=sell_payload, headers=headers)
-        first_result_status = response.status_code
-        times = 10;
-        while first_result_status != 200 and times > 0:
-            response = requests.post(url, json=sell_payload, headers=headers)
-            first_result_status = response.status_code
-            times -= 1
-        
-        print(response.status_code)
-        print("first time" , times)
 
         response = requests.post(url, json=buy_payload, headers=headers)
         second_result_status = response.status_code
@@ -244,6 +234,17 @@ async def create_options_buy_order(sell_symbol, buy_symbol, quantity , strategy 
 
         print(response.status_code)
         print("second time" , times)
+
+        response = requests.post(url, json=sell_payload, headers=headers)
+        first_result_status = response.status_code
+        times = 10;
+        while first_result_status != 200 and times > 0:
+            response = requests.post(url, json=sell_payload, headers=headers)
+            first_result_status = response.status_code
+            times -= 1
+        
+        print(response.status_code)
+        print("first time" , times)
 
         if first_result_status == 200 and second_result_status == 200:
 
@@ -303,15 +304,7 @@ async def create_options_sell_order(sell_symbol, buy_symbol, quantity , strategy
 
         print("sell_payload", sell_payload)
         print("buy_payload", buy_payload)
-        response = requests.post(url, json=buy_payload, headers=headers)
-        first_result_status = response.status_code
-        times = 10;
-        while first_result_status != 200 and times > 0:
-            response = requests.post(url, json=buy_payload, headers=headers)
-            first_result_status = response.status_code
-            times -= 1
-        # print("response2", first_result_status)
-        print("second time" , times)
+        
 
         response = requests.post(url, json=sell_payload, headers=headers)
         second_result_status = response.status_code
@@ -322,6 +315,16 @@ async def create_options_sell_order(sell_symbol, buy_symbol, quantity , strategy
             times -= 1
         # print("response1", response.status_code)
         print("first time" , times)
+
+        response = requests.post(url, json=buy_payload, headers=headers)
+        first_result_status = response.status_code
+        times = 10;
+        while first_result_status != 200 and times > 0:
+            response = requests.post(url, json=buy_payload, headers=headers)
+            first_result_status = response.status_code
+            times -= 1
+        # print("response2", first_result_status)
+        print("second time" , times)
 
         if first_result_status == 200 and second_result_status == 200:
             options_collection = await get_database("optionsDatabase")
