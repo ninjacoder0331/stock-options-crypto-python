@@ -172,16 +172,17 @@ async def options_trading(signal_request: OptionsSignal):
             print("close signal")
 
             options_collection = await get_database("optionsDatabase")
-            options_data = await options_collection.find_one(
-                {"status" : "open"}
-            )
+            open_options_cursor = options_collection.find({"status": "open"})
+            open_options_data = await open_options_cursor.to_list(length=None)
 
-            print("options_data", options_data)
-            if options_data:
-                sell_symbol = options_data["sell_symbol"]
-                buy_symbol = options_data["buy_symbol"]
-                quantity = options_data["quantity"]
-                result = await create_options_sell_order(sell_symbol,buy_symbol,options_amount , signal_request.strategy , signal_request.reason)
+            for option in open_options_data:
+                print(option)
+
+            for open_options_data in open_options_data:
+                sell_symbol = open_options_data["sell_symbol"]
+                buy_symbol = open_options_data["buy_symbol"]
+                quantity = open_options_data["quantity"]
+                result = await create_options_sell_order(sell_symbol,buy_symbol,quantity , signal_request.strategy , signal_request.reason)
 
             return {"message": "Sell order processed", "sell_result->": result}
             
@@ -246,22 +247,24 @@ async def create_options_buy_order(sell_symbol, buy_symbol, quantity , strategy 
         print(response.status_code)
         print("first time" , times)
 
-        if first_result_status == 200 and second_result_status == 200:
-
-            options_collection = await get_database("optionsDatabase")
-            options_data = {
-                "sell_symbol": sell_symbol,
-                "buy_symbol": buy_symbol,
-                "quantity": quantity,
-                "action": "OPEN",
-                "strategy": strategy,
-                "reason": reason,
-                "status" : "open"
-            }
-
-            await options_collection.insert_one(options_data)
+        if first_result_status != 200:
+            sell_symbol = ""
+        if second_result_status !=200:
+            buy_symbol = ""
 
 
+        options_collection = await get_database("optionsDatabase")
+        options_data = {
+            "sell_symbol": sell_symbol,
+            "buy_symbol": buy_symbol,
+            "quantity": quantity,
+            "action": "OPEN",
+            "strategy": strategy,
+            "reason": reason,
+            "status" : "open"
+        }
+
+        await options_collection.insert_one(options_data)
 
         return {"message": "Buy order processed", "buy_result->": "success"}
     except Exception as e:
@@ -304,29 +307,32 @@ async def create_options_sell_order(sell_symbol, buy_symbol, quantity , strategy
 
         print("sell_payload", sell_payload)
         print("buy_payload", buy_payload)
-        
 
-        response = requests.post(url, json=sell_payload, headers=headers)
-        second_result_status = response.status_code
-        times = 10;
-        while second_result_status != 200 and times > 0:
+        first_result_status = 0
+        second_result_status = 0
+        
+        if sell_symbol != "":
             response = requests.post(url, json=sell_payload, headers=headers)
             second_result_status = response.status_code
-            times -= 1
-        # print("response1", response.status_code)
-        print("first time" , times)
-
-        response = requests.post(url, json=buy_payload, headers=headers)
-        first_result_status = response.status_code
-        times = 10;
-        while first_result_status != 200 and times > 0:
+            times = 10;
+            while second_result_status != 200 and times > 0:
+                response = requests.post(url, json=sell_payload, headers=headers)
+                second_result_status = response.status_code
+                times -= 1
+            # print("response1", response.status_code)
+            print("first time" , times)
+        if buy_symbol != "":
             response = requests.post(url, json=buy_payload, headers=headers)
             first_result_status = response.status_code
-            times -= 1
-        # print("response2", first_result_status)
-        print("second time" , times)
+            times = 10;
+            while first_result_status != 200 and times > 0:
+                response = requests.post(url, json=buy_payload, headers=headers)
+                first_result_status = response.status_code
+                times -= 1
+            # print("response2", first_result_status)
+            print("second time" , times)
 
-        if first_result_status == 200 and second_result_status == 200:
+        if first_result_status == 200 or second_result_status == 200:
             options_collection = await get_database("optionsDatabase")
             options_collection.update_one(
                 {"status" : "open"},
