@@ -166,3 +166,31 @@ async def verify_token(request: Request, authorization: Optional[str] = Header(N
             status_code=401,
             detail=str(e)
         )
+
+class ChangePasswordRequest(BaseModel):
+    email : str
+    currentPassword: str
+    newPassword: str
+
+@router.post("/changePassword")
+async def changePassword(request: Request, user: ChangePasswordRequest):
+    try:
+        trader_collection = await get_database("traders")
+        trader = await trader_collection.find_one({"email": user.email})
+        
+        if not trader:
+            raise HTTPException(status_code=404, detail="Trader not found")
+
+        # Verify current password
+        if user.currentPassword != trader['password']:
+            raise HTTPException(status_code=401, detail="Current password is incorrect")
+
+        # Update password
+        await trader_collection.update_one(
+            {"email": user.email}, 
+            {"$set": {"password": user.newPassword}}
+        )
+        
+        return {"message": "Password updated successfully", "status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

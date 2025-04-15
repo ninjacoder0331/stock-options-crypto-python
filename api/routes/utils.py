@@ -28,19 +28,13 @@ def check_option_expiry(month, date):
     option_month = int(month)
     option_date = int(date)
     
-    print(f"Checking expiry - Current: {current_month}/{current_date}, Option: {option_month}/{option_date}")
-    
     # Compare dates
     if current_month > option_month:
-        # print("Option expired: Current month is later than option month")
         return False
     elif current_month < option_month:
-        # print("Option valid: Current month is earlier than option month")
         return True
     else:  # Same month
         if current_date > option_date:
-            # print("Option expired: Same month but current date is later")
             return False
         else:
-            # print("Option valid: Same month and current date is not later")
             return True
