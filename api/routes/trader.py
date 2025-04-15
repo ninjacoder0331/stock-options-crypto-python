@@ -80,12 +80,16 @@ async def get_open_positions():
         "APCA-API-SECRET-KEY": alpaca_secret
         }
 
+
+
         response = requests.get(url, headers=headers)
-        # print(response.json())
-        # response = trading_client.get_orders()
+        
         orders = response.json()
+        url = "https://paper-api.alpaca.markets/v2/account/portfolio/history?intraday_reporting=market_hours&pnl_reset=per_day"
+        response = requests.get(url, headers=headers)
+        portfolio_history = response.json()
         # print("orders", orders)
-        return orders
+        return {"orders": orders, "portfolio_history": portfolio_history}
     except Exception as e:
         print(f"Error fetching open positions: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to fetch open positions")

@@ -52,6 +52,18 @@ async def get_database(collection_name: str):
                 }]
             await analyst_collection.insert_many(initial_analysts)
             print("Created analyst collection with all initial data")
+
+        if "startStopSettings" not in collections:
+            print("Creating startStopSettings collection with initial data...")
+            start_stop_collection = db.get_collection("startStopSettings")
+            
+            # Initial start/stop settings
+            initial_settings = {
+                "stockStart": False,
+                "optionsStart": False
+            }
+            await start_stop_collection.insert_one(initial_settings)
+            print("Created startStopSettings collection with initial data")
         
         collection = db.get_collection(collection_name)
         print("collection")
@@ -72,7 +84,6 @@ async def init_analyst_collection():
         if "analyst" not in collections:
             print("Creating analyst collection with first row...")
             analyst_collection = db.get_collection("analyst")
-            
             # First row of data
             first_analyst = [{
                     "name": "John",
@@ -92,7 +103,6 @@ async def init_analyst_collection():
                 }]
             await analyst_collection.insert_many(first_analyst)
             print("Created analyst collection with first row of data")
-        
         client.close()
     except Exception as e:
         print(f"Error initializing analyst collection: {str(e)}")
