@@ -62,33 +62,33 @@ class SignalRequest(BaseModel):
 class stockSignal(BaseModel):
     order : str
     symbol : str
-    price : float
+    price : str
 
 # for stock trading
 @app.post("/signal")
 async def receive_signal(signal_request: stockSignal):
     try:
         # parsed_data = signal_request.parse_signal()
+        print("signal_request", signal_request.order)
         settings = await get_settings()
         stock_amount = settings["stockAmount"]
         # options_amount = settings["optionsAmount"]
         
         # Handle buy signals
-        if signal_request["order"] == "buy":
-            symbol = signal_request["symbol"]
-            quantity = signal_request["quantity"]
-            price = signal_request["price"]
+        if signal_request.order == 'buy':
+            symbol = signal_request.symbol  # Remove quotes from symbol
+            price = signal_request.price
+            print("symbol", symbol)
             # Your buy order logic here
             result = await create_order(symbol,stock_amount,price)
             return {"message": "Buy order processed", "buy_result->": result}
         
         # Handle sell signals
-        elif signal_request["order"] == "sell":
+        elif signal_request.order == 'sell':
             # Your sell order logic here
             # print("sellOrder--------->occured")
-            symbol = signal_request["symbol"]
-            quantity = signal_request["quantity"]
-            price = signal_request["price"]
+            symbol = signal_request.symbol  # Remove quotes from symbol
+            price = signal_request.price
             result = await create_sell_order(symbol,stock_amount, price)
             return {"message": "Sell order processed", "sell_result->": result}
             
