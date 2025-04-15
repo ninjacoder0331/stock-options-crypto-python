@@ -473,7 +473,6 @@ async def create_order(symbol, quantity):
 
             print("response", response.json())
             print("tradingId", tradingId)
-            price = 0
             quantity = stock_amount
 
             print("price", price)
@@ -482,12 +481,12 @@ async def create_order(symbol, quantity):
                 if order["id"] == tradingId:
                     print("--------------------" , tradingId)
                     price = order["filled_avg_price"]
-                    quantity = order["filled_qty"]
+                    buy_quantity = order["filled_qty"]
                     print("*********************" , price ,"   " , quantity)
                     
                     history_data = {
                         "symbol": symbol,
-                        "quantity": quantity,
+                        "quantity": buy_quantity,
                         "entryPrice": price,
                         "exitPrice": 0,
                         "type": "BUY",
