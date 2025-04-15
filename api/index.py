@@ -438,22 +438,25 @@ async def create_order(symbol, quantity):
         settings_collection = await get_database("settings")
         settings = await settings_collection.find_one({})
         stock_amount = settings["stockAmount"]
-        # Format if needed
         formatted_time = await current_time() 
         print("formatted_time", formatted_time)
         # Configure Alpaca credentials
-        alpaca_api = os.getenv("ALPACA_API_KEY")
-        alpaca_secret = os.getenv("ALPACA_SECRET_KEY")
+        alpaca_api = os.getenv("ALPACA_SHORT_STOCK_API_KEY")
+        alpaca_secret = os.getenv("ALPACA_SHORT_STOCK_SECRET_KEY")
+        print("alpaca_api", alpaca_api)
+        print("alpaca_secret", alpaca_secret)
 
         url = "https://paper-api.alpaca.markets/v2/orders"
 
         payload = {
             "type": "market",
-            "time_in_force": "day",
+            # 
+            "time_in_force": "gtc",
             "symbol": symbol,
             "qty": stock_amount,
             "side": "buy"
         }
+        print("payload", payload)
         headers = {
             "accept": "application/json",
             "content-type": "application/json",
@@ -461,24 +464,24 @@ async def create_order(symbol, quantity):
             "APCA-API-SECRET-KEY": alpaca_secret
         }
 
-
         response = requests.post(url, json=payload, headers=headers)
-        # print("response1", response.json())
+        print("response1", response.json())
         tradingId = response.json()["id"]
         print("tradingId", tradingId)
 
         if tradingId != "":
-            url = "https://paper-api.alpaca.markets/v2/orders?status=all&symbols="+symbol
+            await asyncio.sleep(3)
+            url2 = "https://paper-api.alpaca.markets/v2/orders?status=all&symbols=SOL/USD"
+            # url2 = "https://paper-api.alpaca.markets/v2/orders?status=all&symbols="+symbol
 
-            response = requests.get(url, headers=headers)
+            response2 = requests.get(url2, headers=headers)
+            print("url", url2)
+            print("response2", response2.json())
 
-            print("tradingId", tradingId)
 
-            print("price", price)
-
-            for order in response.json():
+            for order in response2.json():
+                print("*")
                 if order["id"] == tradingId:
-                    
                     print("--------------------" , tradingId)
                     price = order["filled_avg_price"]
                     buy_quantity = order["filled_qty"]
@@ -567,17 +570,19 @@ async def create_sell_order(symbol, quantity):
         tradingId = stock_history["tradingId"]
 
         # Configure Alpaca credentials
-        alpaca_api = os.getenv("ALPACA_API_KEY")
-        alpaca_secret = os.getenv("ALPACA_SECRET_KEY")
+        alpaca_api = os.getenv("ALPACA_SHORT_STOCK_API_KEY")
+        alpaca_secret = os.getenv("ALPACA_SHORT_STOCK_SECRET_KEY")
         url = "https://paper-api.alpaca.markets/v2/orders"
 
         payload = {
             "type": "market",
-            "time_in_force": "day",
+            "time_in_force": "gtc",
+            # "time_in_force": "day",
             "symbol": stock_history["symbol"],
             "qty": stock_amount,
             "side": "sell"
         }
+        print("payload", payload)
         headers = {
             "accept": "application/json",
             "content-type": "application/json",
@@ -587,11 +592,13 @@ async def create_sell_order(symbol, quantity):
 
         response = requests.post(url, json=payload, headers=headers)
         tradingId = response.json()["id"]
+        print("response", response.json())
         print("tradingId", tradingId)
         
         if response.status_code == 200:
-            await asyncio.sleep(5)
-            url = "https://paper-api.alpaca.markets/v2/orders?status=all&symbols=" + stock_history["symbol"]
+            await asyncio.sleep(3)
+            url = "https://paper-api.alpaca.markets/v2/orders?status=all&symbols=SOL/USD"
+            # url = "https://paper-api.alpaca.markets/v2/orders?status=all&symbols=" + stock_history["symbol"]
 
             print("url", url)
             response = requests.get(url, headers=headers)
