@@ -462,7 +462,7 @@ async def create_order(symbol, quantity):
 
 
         response = requests.post(url, json=payload, headers=headers)
-        print("response1", response.json())
+        # print("response1", response.json())
         tradingId = response.json()["id"]
         print("tradingId", tradingId)
 
@@ -471,18 +471,21 @@ async def create_order(symbol, quantity):
 
             response = requests.get(url, headers=headers)
 
-            # print("response", response.json())
+            print("response", response.json())
             print("tradingId", tradingId)
             price = 0
             quantity = stock_amount
+
+            print("price", price)
 
             for order in response.json():
                 if order["id"] == tradingId:
                     print("--------------------" , tradingId)
                     price = order["filled_avg_price"]
                     quantity = order["filled_qty"]
+                    print("*********************" , price ,"   " , quantity)
                     break;
-                    # print("*********************")
+                    
             history_data = {
                 "symbol": symbol,
                 "quantity": quantity,
@@ -587,6 +590,8 @@ async def create_sell_order(symbol, quantity):
         
         if response.status_code == 200:
             url = "https://paper-api.alpaca.markets/v2/orders?status=all&symbols=" + stock_history["symbol"]
+
+            print("url", url)
             response = requests.get(url, headers=headers)
             price = 0
             for order in response.json():
@@ -594,7 +599,7 @@ async def create_sell_order(symbol, quantity):
                     price = order["filled_avg_price"]
                     break;
             exitTimestamp = await current_time()  
-            # print("----------------------------")
+            print("----------------------------", price)
             await stock_history_collection.update_one(
                 {"symbol": symbol, "status": "open" , "tradingType" : "auto" },
                 {"$set": {"status": "closed" , "exitPrice" : price , "exitTimestamp" : exitTimestamp}}
@@ -1013,13 +1018,13 @@ async def check_funtion():
 
 scheduler = AsyncIOScheduler()
 
-scheduler.add_job(
-    check_funtion,
-    trigger='interval',
-    seconds=20,     # Run every 5 seconds
-    timezone=ZoneInfo("America/New_York"),  # ET timezone
-    misfire_grace_time=None  # Optional: handle misfired jobs
-)
+# scheduler.add_job(
+#     check_funtion,
+#     trigger='interval',
+#     seconds=20,     # Run every 5 seconds
+#     timezone=ZoneInfo("America/New_York"),  # ET timezone
+#     misfire_grace_time=None  # Optional: handle misfired jobs
+# )
 
 # Start the scheduler when the application starts
 @app.on_event("startup")
