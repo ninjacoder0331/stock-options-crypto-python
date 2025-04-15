@@ -68,8 +68,13 @@ class stockSignal(BaseModel):
 @app.post("/signal")
 async def receive_signal(signal_request: stockSignal):
     try:
-        # parsed_data = signal_request.parse_signal()
-        print("signal_request", signal_request.order)
+        startStopSettingsCollection = await get_database("startStopSettings")
+        startStopSettings = await startStopSettingsCollection.find_one({})
+        stock_start = startStopSettings["stockStart"]
+        options_start = startStopSettings["optionsStart"]
+        if stock_start == False:
+            return {"message": "Stock trading is not started"}
+        
         settings = await get_settings()
         stock_amount = settings["stockAmount"]
         # options_amount = settings["optionsAmount"]
@@ -147,7 +152,12 @@ async def get_settings():
 @app.post("/optionsTrading")
 async def options_trading(signal_request: OptionsSignal):
     try:
-        print("signal_request", signal_request)
+        startStopSettingsCollection = await get_database("startStopSettings")
+        startStopSettings = await startStopSettingsCollection.find_one({})
+        options_start = startStopSettings["optionsStart"]
+        if options_start == False:
+            return {"message": "Stock trading is not started"}
+        
         sell_symbol = signal_request.options.sell_close
         buy_symbol = signal_request.options.buy_close
 
@@ -424,6 +434,9 @@ async def create_order(symbol, quantity):
     try:
         # Save to stockHistory collection
         stock_history_collection = await get_database("stockHistory")
+        settings_collection = await get_database("settings")
+        settings = await settings_collection.find_one({})
+        stock_amount = settings["stockAmount"]
         # Format if needed
         formatted_time = await current_time() 
         print("formatted_time", formatted_time)
@@ -437,7 +450,7 @@ async def create_order(symbol, quantity):
             "type": "market",
             "time_in_force": "day",
             "symbol": symbol,
-            "qty": quantity,
+            "qty": stock_amount,
             "side": "buy"
         }
         headers = {
