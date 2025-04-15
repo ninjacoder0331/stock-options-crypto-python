@@ -17,6 +17,7 @@ from zoneinfo import ZoneInfo
 from .routes.utils import parse_option_date
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import logging
+import time
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -479,6 +480,7 @@ async def create_order(symbol, quantity):
 
             for order in response.json():
                 if order["id"] == tradingId:
+                    time.sleep(5)
                     print("--------------------" , tradingId)
                     price = order["filled_avg_price"]
                     buy_quantity = order["filled_qty"]
@@ -590,6 +592,7 @@ async def create_sell_order(symbol, quantity):
         print("tradingId", tradingId)
         
         if response.status_code == 200:
+            time.sleep(5)
             url = "https://paper-api.alpaca.markets/v2/orders?status=all&symbols=" + stock_history["symbol"]
 
             print("url", url)
