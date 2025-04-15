@@ -560,6 +560,10 @@ async def create_sell_order(symbol, quantity):
         stock_history_collection = await get_database("stockHistory")
         stock_history = await stock_history_collection.find_one({"symbol": symbol, "status": "open" , "tradingType" : "auto"})
         
+        settings_collection = await get_database("settings")
+        settings = await settings_collection.find_one({})
+        stock_amount = settings["stockAmount"]
+        
         if not stock_history:
             return {"message": "No open position found for this symbol", "status": "not_found"}
 
@@ -574,7 +578,7 @@ async def create_sell_order(symbol, quantity):
             "type": "market",
             "time_in_force": "day",
             "symbol": stock_history["symbol"],
-            "qty": stock_history["quantity"],
+            "qty": stock_amount,
             "side": "sell"
         }
         headers = {
