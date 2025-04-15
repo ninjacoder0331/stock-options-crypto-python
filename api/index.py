@@ -484,27 +484,25 @@ async def create_order(symbol, quantity):
                     price = order["filled_avg_price"]
                     quantity = order["filled_qty"]
                     print("*********************" , price ,"   " , quantity)
+                    
+                    history_data = {
+                        "symbol": symbol,
+                        "quantity": quantity,
+                        "entryPrice": price,
+                        "exitPrice": 0,
+                        "type": "BUY",
+                        
+                        "tradingId": tradingId,
+                        "tradingType" : "auto",
+                        "status": "open",
+                        "entrytimestamp": formatted_time,
+                        "exitTimestamp": None
+                    }
+                    print("history data" , history_data)
+
+                    await stock_history_collection.insert_one(history_data)
                     break;
                     
-            history_data = {
-                "symbol": symbol,
-                "quantity": quantity,
-                "entryPrice": price,
-                "exitPrice": 0,
-                "type": "BUY",
-                
-                "tradingId": tradingId,
-                "tradingType" : "auto",
-                "status": "open",
-                "entrytimestamp": formatted_time,
-                "exitTimestamp": None
-            }
-            print("history data" , history_data)
-
-            await stock_history_collection.insert_one(history_data)
-
-        
-
         logging.info(f"[{datetime.now()}] Buy order created for symbol: {symbol}, quantity: {quantity}")
         return {"message": "Buy order processed", "buy_result->": "success"}
     except Exception as e:
@@ -601,14 +599,15 @@ async def create_sell_order(symbol, quantity):
             for order in response.json():
                 if order["id"] == tradingId:
                     price = order["filled_avg_price"]
-                    break;
-            exitTimestamp = await current_time()  
-            print("----------------------------", price)
-            await stock_history_collection.update_one(
-                {"symbol": symbol, "status": "open" , "tradingType" : "auto" },
-                {"$set": {"status": "closed" , "exitPrice" : price , "exitTimestamp" : exitTimestamp}}
-            )
-            return {"message": "Sell order processed successfully", "status": "success", "exitPrice": price}
+                    
+                    exitTimestamp = await current_time()  
+                    print("----------------------------", price)
+                    await stock_history_collection.update_one(
+                        {"symbol": symbol, "status": "open" , "tradingType" : "auto" },
+                        {"$set": {"status": "closed" , "exitPrice" : price , "exitTimestamp" : exitTimestamp}}
+                    )
+                    return {"message": "Sell order processed successfully", "status": "success", "exitPrice": price}
+                break;
         
         return {"message": "Failed to process sell order", "status": "error"}
         
