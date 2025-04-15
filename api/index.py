@@ -473,6 +473,8 @@ async def create_order(symbol, quantity):
 
             # print("response", response.json())
             print("tradingId", tradingId)
+            price = 0
+            quantity = stock_amount
 
             for order in response.json():
                 if order["id"] == tradingId:
@@ -480,7 +482,7 @@ async def create_order(symbol, quantity):
                     price = order["filled_avg_price"]
                     quantity = order["filled_qty"]
                     break;
-            # print("*********************")
+                    # print("*********************")
             history_data = {
                 "symbol": symbol,
                 "quantity": quantity,
@@ -586,6 +588,7 @@ async def create_sell_order(symbol, quantity):
         if response.status_code == 200:
             url = "https://paper-api.alpaca.markets/v2/orders?status=all&symbols=" + stock_history["symbol"]
             response = requests.get(url, headers=headers)
+            price = 0
             for order in response.json():
                 if order["id"] == tradingId:
                     price = order["filled_avg_price"]
