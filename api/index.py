@@ -431,15 +431,15 @@ async def current_time():
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-def create_order(symbol, quantity):
+async def create_order(symbol, quantity):
     try:
         # Save to stockHistory collection
-        stock_history_collection =  get_database("stockHistory")
-        settings_collection =  get_database("settings")
-        settings =  settings_collection.find_one({})
+        stock_history_collection = await get_database("stockHistory")
+        settings_collection = await get_database("settings")
+        settings = await settings_collection.find_one({})
         stock_amount = settings["stockAmount"]
         # Format if needed
-        formatted_time =  current_time() 
+        formatted_time = await current_time() 
         print("formatted_time", formatted_time)
         # Configure Alpaca credentials
         alpaca_api = os.getenv("ALPACA_API_KEY")
@@ -480,7 +480,7 @@ def create_order(symbol, quantity):
 
             for order in response.json():
                 if order["id"] == tradingId:
-                    time.sleep(5)
+                    await asyncio.sleep(5)
                     print("--------------------" , tradingId)
                     price = order["filled_avg_price"]
                     buy_quantity = order["filled_qty"]
@@ -501,7 +501,7 @@ def create_order(symbol, quantity):
                     }
                     print("history data" , history_data)
 
-                    stock_history_collection.insert_one(history_data)
+                    await stock_history_collection.insert_one(history_data)
                     break;
                     
         logging.info(f"[{datetime.now()}] Buy order created for symbol: {symbol}, quantity: {quantity}")
@@ -553,14 +553,14 @@ async def create_short_stock_order(symbol, quantity, price):
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/sellOrder")
-def create_sell_order(symbol, quantity):
+async def create_sell_order(symbol, quantity):
     try:
         # Save to stockHistory collection
-        stock_history_collection = get_database("stockHistory")
-        stock_history = stock_history_collection.find_one({"symbol": symbol, "status": "open" , "tradingType" : "auto"})
+        stock_history_collection = await get_database("stockHistory")
+        stock_history = await stock_history_collection.find_one({"symbol": symbol, "status": "open" , "tradingType" : "auto"})
         
-        settings_collection = get_database("settings")
-        settings = settings_collection.find_one({})
+        settings_collection = await get_database("settings")
+        settings = await settings_collection.find_one({})
         stock_amount = settings["stockAmount"]
         
         if not stock_history:
@@ -592,7 +592,7 @@ def create_sell_order(symbol, quantity):
         print("tradingId", tradingId)
         
         if response.status_code == 200:
-            time.sleep(5)
+            await asyncio.sleep(5)
             url = "https://paper-api.alpaca.markets/v2/orders?status=all&symbols=" + stock_history["symbol"]
 
             print("url", url)
@@ -602,9 +602,9 @@ def create_sell_order(symbol, quantity):
                 if order["id"] == tradingId:
                     price = order["filled_avg_price"]
                     
-                    exitTimestamp = current_time()  
+                    exitTimestamp = await current_time()  
                     print("----------------------------", price)
-                    stock_history_collection.update_one(
+                    await stock_history_collection.update_one(
                         {"symbol": symbol, "status": "open" , "tradingType" : "auto" },
                         {"$set": {"status": "closed" , "exitPrice" : price , "exitTimestamp" : exitTimestamp}}
                     )
