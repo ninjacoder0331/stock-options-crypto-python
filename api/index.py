@@ -80,7 +80,7 @@ async def receive_signal(signal_request: stockSignal):
             price = signal_request.price
             print("symbol", symbol)
             # Your buy order logic here
-            result = await create_order(symbol,stock_amount,price)
+            result = await create_order(symbol,stock_amount)
             return {"message": "Buy order processed", "buy_result->": result}
         
         # Handle sell signals
@@ -89,7 +89,7 @@ async def receive_signal(signal_request: stockSignal):
             # print("sellOrder--------->occured")
             symbol = signal_request.symbol  # Remove quotes from symbol
             price = signal_request.price
-            result = await create_sell_order(symbol,stock_amount, price)
+            result = await create_sell_order(symbol,stock_amount)
             return {"message": "Sell order processed", "sell_result->": result}
             
         return {"message": "Signal received", "data": signal_request}
@@ -420,7 +420,7 @@ async def current_time():
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-async def create_order(symbol, quantity, price):
+async def create_order(symbol, quantity):
     try:
         # Save to stockHistory collection
         stock_history_collection = await get_database("stockHistory")
@@ -454,7 +454,7 @@ async def create_order(symbol, quantity, price):
         print("tradingId", tradingId)
 
         if response.status_code == 200:
-            url = "https://paper-api.alpaca.markets/v2/orders?status=all&symbols=SPY"
+            url = "https://paper-api.alpaca.markets/v2/orders?status=all&symbols="+symbol
 
             response = requests.get(url, headers=headers)
 
@@ -481,6 +481,7 @@ async def create_order(symbol, quantity, price):
                 "entrytimestamp": formatted_time,
                 "exitTimestamp": None
             }
+            print("history data" , history_data)
 
             await stock_history_collection.insert_one(history_data)
 
@@ -535,7 +536,7 @@ async def create_short_stock_order(symbol, quantity, price):
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/sellOrder")
-async def create_sell_order(symbol, quantity, price):
+async def create_sell_order(symbol, quantity):
     try:
         # Save to stockHistory collection
         stock_history_collection = await get_database("stockHistory")
@@ -568,11 +569,10 @@ async def create_sell_order(symbol, quantity, price):
         response = requests.post(url, json=payload, headers=headers)
         tradingId = response.json()["id"]
         print("tradingId", tradingId)
-
-        url = "https://paper-api.alpaca.markets/v2/orders?status=all&symbols=" + stock_history["symbol"]
-        response = requests.get(url, headers=headers)
-
+        
         if response.status_code == 200:
+            url = "https://paper-api.alpaca.markets/v2/orders?status=all&symbols=" + stock_history["symbol"]
+            response = requests.get(url, headers=headers)
             for order in response.json():
                 if order["id"] == tradingId:
                     price = order["filled_avg_price"]
