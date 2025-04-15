@@ -467,13 +467,11 @@ async def create_order(symbol, quantity):
         tradingId = response.json()["id"]
         print("tradingId", tradingId)
 
-        if response.status_code == 200:
-            await asyncio.sleep(5)
+        if tradingId != "":
             url = "https://paper-api.alpaca.markets/v2/orders?status=all&symbols="+symbol
 
             response = requests.get(url, headers=headers)
 
-            print("response", response.json())
             print("tradingId", tradingId)
 
             print("price", price)
