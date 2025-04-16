@@ -201,3 +201,39 @@ async def buy_options(request: BuyOptionsRequest):
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/profitLoss")
+async def get_history_data():
+    try:
+        stock_history_collection = await get_database("stockHistory")
+        # Sort by exitTimestamp in descending order (newest first)
+        stock_history = await stock_history_collection.find({"status": "closed"}).sort("exitTimestamp", -1).to_list(1000)
+        print("stock_history", stock_history)
+        
+        stock_history_data = [] 
+        for stock in stock_history:
+            # Convert ObjectId to string for JSON serialization
+            stock_id = str(stock["_id"])
+            
+            # Create a new dictionary with all fields properly handled
+            stock_data = {
+                "id": stock_id,
+                "symbol": stock.get("symbol", ""),
+                "status": stock.get("status", ""),
+                "profitLoss": stock.get("profitLoss", 0),
+                "quantity": stock.get("quantity", 0),
+                "entryPrice": stock.get("entryPrice", 0),
+                "exitPrice": stock.get("exitPrice", 0),
+                "tradingType": stock.get("tradingType", ""),
+                "entryTimestamp": stock.get("entrytimestamp", ""),
+                "exitTimestamp": stock.get("exitTimestamp", "")
+            }
+            
+            stock_history_data.append(stock_data)
+            
+        return stock_history_data
+        
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
