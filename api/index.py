@@ -666,8 +666,8 @@ async def create_order(symbol, quantity):
         formatted_time = await current_time() 
         print("formatted_time", formatted_time)
         # Configure Alpaca credentials
-        alpaca_api = os.getenv("ALPACA_API_KEY")
-        alpaca_secret = os.getenv("ALPACA_SECRET_KEY")
+        alpaca_api = os.getenv("ALPACA_SHORT_STOCK_API_KEY")
+        alpaca_secret = os.getenv("ALPACA_SHORT_STOCK_SECRET_KEY")
         print("alpaca_api", alpaca_api)
         print("alpaca_secret", alpaca_secret)
 
@@ -675,7 +675,7 @@ async def create_order(symbol, quantity):
 
         payload = {
             "type": "market",
-            "time_in_force": "day",
+            "time_in_force": "gtc",
             "symbol": symbol,
             "qty": stock_amount,
             "side": "buy"
@@ -694,9 +694,9 @@ async def create_order(symbol, quantity):
         print("tradingId", tradingId)
 
         if tradingId != "":
-            await asyncio.sleep(3)
-            # url2 = "https://paper-api.alpaca.markets/v2/orders?status=all&symbols=SOL/USD"
-            url2 = "https://paper-api.alpaca.markets/v2/orders?status=all&symbols="+symbol
+            await asyncio.sleep(2)
+            url2 = "https://paper-api.alpaca.markets/v2/orders?status=all&symbols=SOL/USD"
+            # url2 = "https://paper-api.alpaca.markets/v2/orders?status=all&symbols="+symbol
 
             response2 = requests.get(url2, headers=headers)
             print("url", url2)
@@ -710,7 +710,7 @@ async def create_order(symbol, quantity):
                     price = order["filled_avg_price"]
                     buy_quantity = order["filled_qty"]
                     entrytimestamp = order["filled_at"]
-                    print("*********************" , price ,"   " , quantity)
+                    print("*********************" , price ," entrytimestamp " , entrytimestamp)
                     
                     history_data = {
                         "symbol": symbol,
@@ -753,13 +753,13 @@ async def create_sell_order(symbol, quantity):
         tradingId = stock_history["tradingId"]
 
         # Configure Alpaca credentials
-        alpaca_api = os.getenv("ALPACA_API_KEY")
-        alpaca_secret = os.getenv("ALPACA_SECRET_KEY")
+        alpaca_api = os.getenv("ALPACA_SHORT_STOCK_API_KEY")
+        alpaca_secret = os.getenv("ALPACA_SHORT_STOCK_SECRET_KEY")
         url = "https://paper-api.alpaca.markets/v2/orders"
 
         payload = {
             "type": "market",
-            "time_in_force": "day",
+            "time_in_force": "gtc",
             "symbol": stock_history["symbol"],
             "qty": stock_amount,
             "side": "sell"
@@ -779,8 +779,8 @@ async def create_sell_order(symbol, quantity):
         
         if response.status_code == 200:
             await asyncio.sleep(3)
-            # url = "https://paper-api.alpaca.markets/v2/orders?status=all&symbols=SOL/USD"
-            url = "https://paper-api.alpaca.markets/v2/orders?status=all&symbols=" + stock_history["symbol"]
+            url = "https://paper-api.alpaca.markets/v2/orders?status=all&symbols=SOL/USD"
+            # url = "https://paper-api.alpaca.markets/v2/orders?status=all&symbols=" + stock_history["symbol"]
 
             print("url", url)
             response = requests.get(url, headers=headers)
