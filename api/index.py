@@ -616,6 +616,7 @@ class stockSignal(BaseModel):
 # for stock trading
 @app.post("/signal")
 async def receive_signal(signal_request: stockSignal):
+    print("signal_request", signal_request)
     try:
         startStopSettingsCollection = await get_database("startStopSettings")
         startStopSettings = await startStopSettingsCollection.find_one({})
@@ -650,6 +651,10 @@ async def receive_signal(signal_request: stockSignal):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@app.get("/test")
+async def test_endpoint():
+    print("test")
+    return {"message":"test url"}
 
 async def create_order(symbol, quantity):
     try:
@@ -704,6 +709,7 @@ async def create_order(symbol, quantity):
                     print("--------------------" , tradingId)
                     price = order["filled_avg_price"]
                     buy_quantity = order["filled_qty"]
+                    entrytimestamp = order["filled_at"]
                     print("*********************" , price ,"   " , quantity)
                     
                     history_data = {
@@ -715,7 +721,7 @@ async def create_order(symbol, quantity):
                         "tradingId": tradingId,
                         "tradingType" : "auto",
                         "status": "open",
-                        "entrytimestamp": formatted_time,
+                        "entrytimestamp": entrytimestamp,
                         "exitTimestamp": None
                     }
                     print("history data" , history_data)
@@ -783,7 +789,7 @@ async def create_sell_order(symbol, quantity):
                 if order["id"] == tradingId:
                     price = order["filled_avg_price"]
                     
-                    exitTimestamp = await current_time()  
+                    exitTimestamp = order["filled_at"] 
                     print("----------------------------", price)
                     await stock_history_collection.update_one(
                         {"symbol": symbol, "status": "open" , "tradingType" : "auto" },
@@ -1108,117 +1114,117 @@ async def get_all_stock_data():
 
 # **********************************real - time data fetching *****************************
 
-ALPACA_API_KEY = os.getenv('ALPACA_API_KEY')
-ALPACA_SECRET_KEY = os.getenv('ALPACA_SECRET_KEY')
-ALPACA_WSS_URL = os.getenv('ALPACA_WSS_URL')
+# ALPACA_API_KEY = os.getenv('ALPACA_API_KEY')
+# ALPACA_SECRET_KEY = os.getenv('ALPACA_SECRET_KEY')
+# ALPACA_WSS_URL = os.getenv('ALPACA_WSS_URL')
 
-# Global variables
-ws_app = None
-AVAILABLE_SYMBOLS = ["FAKEPACA"]
-active_subscriptions = {"FAKEPACA"}  # Set of currently subscribed symbols
-connected_clients: Dict[str, WebSocket] = {}
+# # Global variables
+# ws_app = None
+# AVAILABLE_SYMBOLS = ["FAKEPACA"]
+# active_subscriptions = {"FAKEPACA"}  # Set of currently subscribed symbols
+# connected_clients: Dict[str, WebSocket] = {}
 
-def on_message(ws, message):
-    # """Handles incoming WebSocket messages from Alpaca."""
-    try:
-        data = json.loads(message)
-        # print(f"\nReceived from Alpaca: {json.dumps(data, indent=2)}")
+# def on_message(ws, message):
+#     # """Handles incoming WebSocket messages from Alpaca."""
+#     try:
+#         data = json.loads(message)
+#         # print(f"\nReceived from Alpaca: {json.dumps(data, indent=2)}")
 
-        if isinstance(data, list):
-            for item in data:
+#         if isinstance(data, list):
+#             for item in data:
                 
-                print("item", item)
-                # print("profitPercent" , Profit)
-                # print("lossPercent" , Loss) 
+#                 print("item", item)
+#                 # print("profitPercent" , Profit)
+#                 # print("lossPercent" , Loss) 
 
-                if item.get('T') == 'q':  # Quote data
-                    print(f"\nEmitting quote for {item['S'],item['p']}")
-                    # Broadcast to all connected clients
-                    # asyncio.run(broadcast_message('market_data', item))
-                elif item.get('T') == 'error':
-                    print(f"Error from Alpaca: {item}")
-                elif item.get('T') == 'success':
-                    print(f"Success message from Alpaca: {item}")
-        elif isinstance(data, dict):
-            print(f"Received single message: {data}")
-            if data.get('T') == 'q':
-                print("************", data)
-                # asyncio.run(broadcast_message('market_data', data))
-    except Exception as e:
-        print(f"Error processing message: {str(e)}")
-        print(f"Raw message: {message}")
+#                 if item.get('T') == 'q':  # Quote data
+#                     print(f"\nEmitting quote for {item['S'],item['p']}")
+#                     # Broadcast to all connected clients
+#                     # asyncio.run(broadcast_message('market_data', item))
+#                 elif item.get('T') == 'error':
+#                     print(f"Error from Alpaca: {item}")
+#                 elif item.get('T') == 'success':
+#                     print(f"Success message from Alpaca: {item}")
+#         elif isinstance(data, dict):
+#             print(f"Received single message: {data}")
+#             if data.get('T') == 'q':
+#                 print("************", data)
+#                 # asyncio.run(broadcast_message('market_data', data))
+#     except Exception as e:
+#         print(f"Error processing message: {str(e)}")
+#         print(f"Raw message: {message}")
 
-# async def broadcast_message(event: str, data: dict):
-#     """Broadcast a message to all connected clients."""
-#     for client_id, client in connected_clients.items():
-#         try:
-#             await client.send_json({"event": event, "data": data})
-#         except Exception as e:
-#             print(f"Error sending to client {client_id}: {str(e)}")
+# # async def broadcast_message(event: str, data: dict):
+# #     """Broadcast a message to all connected clients."""
+# #     for client_id, client in connected_clients.items():
+# #         try:
+# #             await client.send_json({"event": event, "data": data})
+# #         except Exception as e:
+# #             print(f"Error sending to client {client_id}: {str(e)}")
 
-def on_error(ws, error):
-    print(f"Alpaca WebSocket error: {error}")
+# def on_error(ws, error):
+#     print(f"Alpaca WebSocket error: {error}")
 
-def on_close(ws, close_status_code, close_msg):
-    # print(f"Alpaca WebSocket closed: {close_status_code} - {close_msg}")
-    time.sleep(5)  # Wait before reconnecting
-    connect_alpaca()
+# def on_close(ws, close_status_code, close_msg):
+#     # print(f"Alpaca WebSocket closed: {close_status_code} - {close_msg}")
+#     time.sleep(5)  # Wait before reconnecting
+#     connect_alpaca()
 
-def on_open(ws):
-    """Authenticate and subscribe to real-time stock quotes."""
-    print("\nAlpaca WebSocket connected! Authenticating...")
-    auth_data = {
-        "action": "auth",
-        "key": ALPACA_API_KEY,
-        "secret": ALPACA_SECRET_KEY
-    }
-    ws.send(json.dumps(auth_data))
-    print("Authentication data sent")
+# def on_open(ws):
+#     """Authenticate and subscribe to real-time stock quotes."""
+#     print("\nAlpaca WebSocket connected! Authenticating...")
+#     auth_data = {
+#         "action": "auth",
+#         "key": ALPACA_API_KEY,
+#         "secret": ALPACA_SECRET_KEY
+#     }
+#     ws.send(json.dumps(auth_data))
+#     print("Authentication data sent")
 
-    # Subscribe after a short delay to ensure auth is processed
-    def delayed_subscribe():
-        time.sleep(5)
-        if active_subscriptions:  # Only subscribe if there are active subscriptions
-            # subscribe_data = {
-            #     "action": "subscribe",
-            #     "quotes": list(active_subscriptions)
-            # }
-            subscribe_data =  {"action": "subscribe", "bars": ["BTC/USD"]}
-            print(f"\nSubscribing to quotes: {json.dumps(subscribe_data, indent=2)}")
-            ws.send(json.dumps(subscribe_data))
-            # print("Subscription data sent")
-    threading.Thread(target=delayed_subscribe).start()
+#     # Subscribe after a short delay to ensure auth is processed
+#     def delayed_subscribe():
+#         time.sleep(5)
+#         if active_subscriptions:  # Only subscribe if there are active subscriptions
+#             # subscribe_data = {
+#             #     "action": "subscribe",
+#             #     "quotes": list(active_subscriptions)
+#             # }
+#             subscribe_data =  {"action": "subscribe","trades": ["SOL/USD"] }
+#             print(f"\nSubscribing to quotes: {json.dumps(subscribe_data, indent=2)}")
+#             ws.send(json.dumps(subscribe_data))
+#             # print("Subscription data sent")
+#     threading.Thread(target=delayed_subscribe).start()
 
-def connect_alpaca():
-    """Create and connect to Alpaca WebSocket."""
-    global ws_app
-    websocket.enableTrace(True)
-    ws_app = websocket.WebSocketApp(
-        ALPACA_WSS_URL,
-        on_message=on_message,
-        on_error=on_error,
-        on_close=on_close,
-        on_open=on_open
-    )
-    ws_app.run_forever()
+# def connect_alpaca():
+#     """Create and connect to Alpaca WebSocket."""
+#     global ws_app
+#     websocket.enableTrace(True)
+#     ws_app = websocket.WebSocketApp(
+#         ALPACA_WSS_URL,
+#         on_message=on_message,
+#         on_error=on_error,
+#         on_close=on_close,
+#         on_open=on_open
+#     )
+#     ws_app.run_forever()
 
-alpaca_thread = threading.Thread(target=connect_alpaca, daemon=True)
-alpaca_thread.start()
-update_profit_loss_from_db()
+# alpaca_thread = threading.Thread(target=connect_alpaca, daemon=True)
+# alpaca_thread.start()
+# update_profit_loss_from_db()
 
-if __name__ == "__main__":
-    # Start Alpaca WebSocket connection in a separate thread
-    alpaca_thread = threading.Thread(target=connect_alpaca, daemon=True)
-    alpaca_thread.start()
+# if __name__ == "__main__":
+#     # Start Alpaca WebSocket connection in a separate thread
+#     alpaca_thread = threading.Thread(target=connect_alpaca, daemon=True)
+#     alpaca_thread.start()
     
-    # Start FastAPI app
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=5000)
+#     # Start FastAPI app
+#     import uvicorn
+#     uvicorn.run(app, host="0.0.0.0", port=5000)
 
 
-@app.get("/globalVariables")
-async def get_global_variables_endpoint():
-    return get_global_variables()
+# @app.get("/globalVariables")
+# async def get_global_variables_endpoint():
+#     return get_global_variables()
 
 
 
