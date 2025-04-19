@@ -209,7 +209,7 @@ async def get_history_data():
         stock_history_collection = await get_database("stockHistory")
         # Sort by exitTimestamp in descending order (newest first)
         stock_history = await stock_history_collection.find({"status": "closed"}).sort("exitTimestamp", -1).to_list(1000)
-        print("stock_history", stock_history)
+        # print("stock_history", stock_history)
         
         stock_history_data = [] 
         for stock in stock_history:
