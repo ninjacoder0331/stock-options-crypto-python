@@ -1055,8 +1055,8 @@ async def check_funtion():
         if signal_is_open == True:
             global entry_price
             print("================entry_price=========", entry_price)
-            stop_loss = updated_entry_price * (1 - loss_percent)
-            take_profit = entry_price * (1 + profit_percent)
+            stop_loss = updated_entry_price * (1 - loss_percent/100)
+            take_profit = entry_price * (1 + profit_percent/100)
 
             url = "https://paper-api.alpaca.markets/v2/positions/" + symbol
 
