@@ -65,3 +65,8 @@ coverage.xml
 # Project specific
 node_modules/
 .pytest_cache/
+1.docx
+handler.py
+price.csv
+btc strategy.txt
+tmo_strategy.py

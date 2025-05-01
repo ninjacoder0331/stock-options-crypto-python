@@ -31,9 +31,12 @@ load_dotenv()
 
 app = FastAPI()
 
-Profit = 0
-Loss = 0
-buyPrice = -1
+entry_price = 0
+updated_entry_price = 0
+signal_is_open = False
+profit_percent = 2
+loss_percent = 0.3
+symbol = "UVIX"
 
 # Add CORS middleware
 app.add_middleware(
@@ -631,15 +634,21 @@ async def receive_signal(signal_request: stockSignal):
         
         # Handle buy signals
         if signal_request.order == 'buy':
-            symbol = signal_request.symbol  # Remove quotes from symbol
-            price = signal_request.price
-            print("symbol", symbol)
-            # Your buy order logic here
-            result = await create_order(symbol,stock_amount)
-            return {"message": "Buy order processed", "buy_result->": result}
+            global signal_is_open
+            if signal_is_open == False:
+                signal_is_open = True
+                symbol = signal_request.symbol  # Remove quotes from symbol
+                price = signal_request.price
+                print("symbol", symbol)
+                # Your buy order logic here
+                result = await create_order(symbol,stock_amount)
+                return {"message": "Buy order processed", "buy_result->": result}
+            else:
+                return {"message": "Buy order already processed", "buy_result->": "already_processed"}
         
         # Handle sell signals
         elif signal_request.order == 'sell':
+            return {"message": "Sell order already processed", "sell_result->": "already_processed"}
             # Your sell order logic here
             # print("sellOrder--------->occured")
             symbol = signal_request.symbol  # Remove quotes from symbol
@@ -658,29 +667,24 @@ async def test_endpoint():
 
 async def create_order(symbol, quantity):
     try:
-        # Save to stockHistory collection
+        global entry_price  # Add this line to access the global variable
         stock_history_collection = await get_database("stockHistory")
         settings_collection = await get_database("settings")
         settings = await settings_collection.find_one({})
         stock_amount = settings["stockAmount"]
         formatted_time = await current_time() 
-        print("formatted_time", formatted_time)
-        # Configure Alpaca credentials
-        alpaca_api = os.getenv("ALPACA_SHORT_STOCK_API_KEY")
-        alpaca_secret = os.getenv("ALPACA_SHORT_STOCK_SECRET_KEY")
-        print("alpaca_api", alpaca_api)
-        print("alpaca_secret", alpaca_secret)
+        alpaca_api = os.getenv("ALPACA_API_KEY")
+        alpaca_secret = os.getenv("ALPACA_SECRET_KEY")
 
         url = "https://paper-api.alpaca.markets/v2/orders"
 
         payload = {
             "type": "market",
-            "time_in_force": "gtc",
+            "time_in_force": "day",
             "symbol": symbol,
             "qty": stock_amount,
             "side": "buy"
         }
-        print("payload", payload)
         headers = {
             "accept": "application/json",
             "content-type": "application/json",
@@ -689,28 +693,23 @@ async def create_order(symbol, quantity):
         }
 
         response = requests.post(url, json=payload, headers=headers)
-        print("response1", response.json())
+        # print("response1", response.json())
         tradingId = response.json()["id"]
-        print("tradingId", tradingId)
+        # print("tradingId", tradingId)
 
         if tradingId != "":
             await asyncio.sleep(2)
-            url2 = "https://paper-api.alpaca.markets/v2/orders?status=all&symbols=SOL/USD"
-            # url2 = "https://paper-api.alpaca.markets/v2/orders?status=all&symbols="+symbol
-
+            url2 = "https://paper-api.alpaca.markets/v2/orders?status=all&symbols="+symbol
             response2 = requests.get(url2, headers=headers)
-            print("url", url2)
-            print("response2", response2.json())
-
 
             for order in response2.json():
-                print("*")
                 if order["id"] == tradingId:
-                    print("--------------------" , tradingId)
                     price = order["filled_avg_price"]
                     buy_quantity = order["filled_qty"]
                     entrytimestamp = order["filled_at"]
-                    print("*********************" , price ," entrytimestamp " , entrytimestamp)
+                    entry_price = float(price)  # This will now update the global variable
+                    global updated_entry_price
+                    updated_entry_price = float(price)
                     
                     history_data = {
                         "symbol": symbol,
@@ -724,21 +723,26 @@ async def create_order(symbol, quantity):
                         "entrytimestamp": entrytimestamp,
                         "exitTimestamp": None
                     }
-                    print("history data" , history_data)
-
+                    print("buy order is excuted" , entry_price)
+                                
                     await stock_history_collection.insert_one(history_data)
-                    await update_buy_price(price)
                     break;
                     
         logging.info(f"[{datetime.now()}] Buy order created for symbol: {symbol}, quantity: {quantity}")
-        return {"message": "Buy order processed", "buy_result->": "success"}
+        return entry_price
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        return None
 
 
-@app.post("/sellOrder")
-async def create_sell_order(symbol, quantity):
+async def create_sell_order(symbol):
     try:
+        global entry_price
+        global updated_entry_price
+        global signal_is_open
+
+        entry_price = 0
+        updated_entry_price = 0
+        signal_is_open = False
         # Save to stockHistory collection
         stock_history_collection = await get_database("stockHistory")
         stock_history = await stock_history_collection.find_one({"symbol": symbol, "status": "open" , "tradingType" : "auto"})
@@ -753,18 +757,18 @@ async def create_sell_order(symbol, quantity):
         tradingId = stock_history["tradingId"]
 
         # Configure Alpaca credentials
-        alpaca_api = os.getenv("ALPACA_SHORT_STOCK_API_KEY")
-        alpaca_secret = os.getenv("ALPACA_SHORT_STOCK_SECRET_KEY")
+        alpaca_api = os.getenv("ALPACA_API_KEY")
+        alpaca_secret = os.getenv("ALPACA_SECRET_KEY")
         url = "https://paper-api.alpaca.markets/v2/orders"
 
         payload = {
             "type": "market",
-            "time_in_force": "gtc",
+            "time_in_force": "day",
             "symbol": stock_history["symbol"],
             "qty": stock_amount,
             "side": "sell"
         }
-        print("payload", payload)
+        # print("payload", payload)
         headers = {
             "accept": "application/json",
             "content-type": "application/json",
@@ -774,15 +778,15 @@ async def create_sell_order(symbol, quantity):
 
         response = requests.post(url, json=payload, headers=headers)
         tradingId = response.json()["id"]
-        print("response", response.json())
-        print("tradingId", tradingId)
+        # print("response", response.json())
+        # print("tradingId", tradingId)
         
         if response.status_code == 200:
             await asyncio.sleep(3)
-            url = "https://paper-api.alpaca.markets/v2/orders?status=all&symbols=SOL/USD"
+            url = "https://paper-api.alpaca.markets/v2/orders?status=all&symbols="+symbol
             # url = "https://paper-api.alpaca.markets/v2/orders?status=all&symbols=" + stock_history["symbol"]
 
-            print("url", url)
+            # print("url", url)
             response = requests.get(url, headers=headers)
             price = 0
             for order in response.json():
@@ -790,7 +794,8 @@ async def create_sell_order(symbol, quantity):
                     price = order["filled_avg_price"]
                     
                     exitTimestamp = order["filled_at"] 
-                    print("----------------------------", price)
+                    # print("----------------------------", price)
+                    print("sell order is excuted" , price)
                     await stock_history_collection.update_one(
                         {"symbol": symbol, "status": "open" , "tradingType" : "auto" },
                         {"$set": {"status": "closed" , "exitPrice" : price , "exitTimestamp" : exitTimestamp}}
@@ -801,7 +806,7 @@ async def create_sell_order(symbol, quantity):
         return {"message": "Failed to process sell order", "status": "error"}
         
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        return None
 
 
 # db = client.optionsTrading
@@ -1040,50 +1045,62 @@ async def check_date_expired(option_symbol , left_amount):
         print(f"Error in date expired check: {e}")
         return False
 
-
 async def check_funtion():
     try:
-        # First check if market is open
-        is_market_open = await check_market_time()
-        if not is_market_open:
-            print("Market is closed. Skipping position checks.")
+        global signal_is_open
+        global profit_percent
+        global loss_percent
+        global updated_entry_price
 
-            # return "Market is closed"
-        else : 
-            print("Market is open")
+        if signal_is_open == True:
+            global entry_price
+            print("================entry_price=========", entry_price)
+            stop_loss = updated_entry_price * (1 - loss_percent)
+            take_profit = entry_price * (1 + profit_percent)
 
-        api_key = os.getenv("ALPACA_OPTIONS_API_KEY")
-        api_secret = os.getenv("ALPACA_OPTIONS_SECRET_KEY")
+            url = "https://paper-api.alpaca.markets/v2/positions/" + symbol
 
-        url = "https://paper-api.alpaca.markets/v2/positions"
+            ALPACA_API_KEY = os.getenv("ALPACA_API_KEY")
+            ALPACA_SECRET_KEY = os.getenv("ALPACA_SECRET_KEY")
 
-        headers = {
-            "accept": "application/json",
-            "APCA-API-KEY-ID": api_key,
-            "APCA-API-SECRET-KEY": api_secret
-        }
+            headers = {
+                "accept": "application/json",
+                "APCA-API-KEY-ID": ALPACA_API_KEY,
+                "APCA-API-SECRET-KEY": ALPACA_SECRET_KEY
+            }
+            response = requests.get(url, headers=headers)
+            bid_price = response.json()["current_price"]
+            print("current_price", bid_price)
+            print("stop_loss" , stop_loss)
+            print("take profit" , take_profit)
 
-        response = requests.get(url, headers=headers)
-        for position in response.json():  # assuming 'positions' is your JSON array
-            symbol = position["symbol"]
-            print("qty", position["qty"])
-            if position["asset_class"] != "us_option":
-                await check_date_expired(symbol , position["qty"])
+            updated_entry_price = float(bid_price)
 
-        return "Function executed successfully"
+            if float(bid_price) <= stop_loss:
+                signal_is_open = False
+                sell_order = await create_sell_order(symbol)
+                return "SELL_STOP_LOSS"
+            elif float(bid_price) >= take_profit:
+                signal_is_open = False
+                sell_order = await create_sell_order(symbol)
+                return "SELL_TAKE_PROFIT"
+            else:
+                return "HOLD"
+        
+        return "HOLD"
     except Exception as e:
         print(f"Error in function: {str(e)}")
         return "Error occurred"
 
 scheduler = AsyncIOScheduler()
 
-# scheduler.add_job(
-#     check_funtion,
-#     trigger='interval',
-#     seconds=20,     # Run every 5 seconds
-#     timezone=ZoneInfo("America/New_York"),  # ET timezone
-#     misfire_grace_time=None  # Optional: handle misfired jobs
-# )
+scheduler.add_job(
+    check_funtion,
+    trigger='interval',
+    seconds=60,     # Run every 5 seconds
+    timezone=ZoneInfo("America/New_York"),  # ET timezone
+    misfire_grace_time=None  # Optional: handle misfired jobs
+)
 
 # Start the scheduler when the application starts
 @app.on_event("startup")
@@ -1111,120 +1128,3 @@ async def get_all_stock_data():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
-
-# **********************************real - time data fetching *****************************
-
-# ALPACA_API_KEY = os.getenv('ALPACA_API_KEY')
-# ALPACA_SECRET_KEY = os.getenv('ALPACA_SECRET_KEY')
-# ALPACA_WSS_URL = os.getenv('ALPACA_WSS_URL')
-
-# # Global variables
-# ws_app = None
-# AVAILABLE_SYMBOLS = ["FAKEPACA"]
-# active_subscriptions = {"FAKEPACA"}  # Set of currently subscribed symbols
-# connected_clients: Dict[str, WebSocket] = {}
-
-# def on_message(ws, message):
-#     # """Handles incoming WebSocket messages from Alpaca."""
-#     try:
-#         data = json.loads(message)
-#         # print(f"\nReceived from Alpaca: {json.dumps(data, indent=2)}")
-
-#         if isinstance(data, list):
-#             for item in data:
-                
-#                 print("item", item)
-#                 # print("profitPercent" , Profit)
-#                 # print("lossPercent" , Loss) 
-
-#                 if item.get('T') == 'q':  # Quote data
-#                     print(f"\nEmitting quote for {item['S'],item['p']}")
-#                     # Broadcast to all connected clients
-#                     # asyncio.run(broadcast_message('market_data', item))
-#                 elif item.get('T') == 'error':
-#                     print(f"Error from Alpaca: {item}")
-#                 elif item.get('T') == 'success':
-#                     print(f"Success message from Alpaca: {item}")
-#         elif isinstance(data, dict):
-#             print(f"Received single message: {data}")
-#             if data.get('T') == 'q':
-#                 print("************", data)
-#                 # asyncio.run(broadcast_message('market_data', data))
-#     except Exception as e:
-#         print(f"Error processing message: {str(e)}")
-#         print(f"Raw message: {message}")
-
-# # async def broadcast_message(event: str, data: dict):
-# #     """Broadcast a message to all connected clients."""
-# #     for client_id, client in connected_clients.items():
-# #         try:
-# #             await client.send_json({"event": event, "data": data})
-# #         except Exception as e:
-# #             print(f"Error sending to client {client_id}: {str(e)}")
-
-# def on_error(ws, error):
-#     print(f"Alpaca WebSocket error: {error}")
-
-# def on_close(ws, close_status_code, close_msg):
-#     # print(f"Alpaca WebSocket closed: {close_status_code} - {close_msg}")
-#     time.sleep(5)  # Wait before reconnecting
-#     connect_alpaca()
-
-# def on_open(ws):
-#     """Authenticate and subscribe to real-time stock quotes."""
-#     print("\nAlpaca WebSocket connected! Authenticating...")
-#     auth_data = {
-#         "action": "auth",
-#         "key": ALPACA_API_KEY,
-#         "secret": ALPACA_SECRET_KEY
-#     }
-#     ws.send(json.dumps(auth_data))
-#     print("Authentication data sent")
-
-#     # Subscribe after a short delay to ensure auth is processed
-#     def delayed_subscribe():
-#         time.sleep(5)
-#         if active_subscriptions:  # Only subscribe if there are active subscriptions
-#             # subscribe_data = {
-#             #     "action": "subscribe",
-#             #     "quotes": list(active_subscriptions)
-#             # }
-#             subscribe_data =  {"action": "subscribe","trades": ["SOL/USD"] }
-#             print(f"\nSubscribing to quotes: {json.dumps(subscribe_data, indent=2)}")
-#             ws.send(json.dumps(subscribe_data))
-#             # print("Subscription data sent")
-#     threading.Thread(target=delayed_subscribe).start()
-
-# def connect_alpaca():
-#     """Create and connect to Alpaca WebSocket."""
-#     global ws_app
-#     websocket.enableTrace(True)
-#     ws_app = websocket.WebSocketApp(
-#         ALPACA_WSS_URL,
-#         on_message=on_message,
-#         on_error=on_error,
-#         on_close=on_close,
-#         on_open=on_open
-#     )
-#     ws_app.run_forever()
-
-# alpaca_thread = threading.Thread(target=connect_alpaca, daemon=True)
-# alpaca_thread.start()
-# update_profit_loss_from_db()
-
-# if __name__ == "__main__":
-#     # Start Alpaca WebSocket connection in a separate thread
-#     alpaca_thread = threading.Thread(target=connect_alpaca, daemon=True)
-#     alpaca_thread.start()
-    
-#     # Start FastAPI app
-#     import uvicorn
-#     uvicorn.run(app, host="0.0.0.0", port=5000)
-
-
-# @app.get("/globalVariables")
-# async def get_global_variables_endpoint():
-#     return get_global_variables()
-
-
-
