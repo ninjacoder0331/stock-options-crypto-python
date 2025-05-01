@@ -1074,7 +1074,8 @@ async def check_funtion():
             print("stop_loss" , stop_loss)
             print("take profit" , take_profit)
 
-            updated_entry_price = float(bid_price)
+            if float(bid_price) > entry_price:
+                updated_entry_price = float(bid_price)
 
             if float(bid_price) <= stop_loss:
                 signal_is_open = False
