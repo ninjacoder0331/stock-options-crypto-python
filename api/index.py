@@ -35,8 +35,9 @@ entry_price = 0
 updated_entry_price = 0
 signal_is_open = False
 profit_percent = 2
-loss_percent = 0.3
+lose_percent = 0.3
 symbol = "UVIX"
+order_id = ""
 
 # Add CORS middleware
 app.add_middleware(
@@ -634,9 +635,8 @@ async def receive_signal(signal_request: stockSignal):
         
         # Handle buy signals
         if signal_request.order == 'buy':
-            global signal_is_open
-            if signal_is_open == False:
-                signal_is_open = True
+            check_position = await check_open_position()
+            if check_position == False:
                 symbol = signal_request.symbol  # Remove quotes from symbol
                 price = signal_request.price
                 print("symbol", symbol)
@@ -693,9 +693,7 @@ async def create_order(symbol, quantity):
         }
 
         response = requests.post(url, json=payload, headers=headers)
-        # print("response1", response.json())
         tradingId = response.json()["id"]
-        # print("tradingId", tradingId)
 
         if tradingId != "":
             await asyncio.sleep(2)
@@ -710,6 +708,11 @@ async def create_order(symbol, quantity):
                     entry_price = float(price)  # This will now update the global variable
                     global updated_entry_price
                     updated_entry_price = float(price)
+
+                    stop_loss_price = round((updated_entry_price * (1 - lose_percent/100)), 2)
+                    take_profit_price = round(updated_entry_price * (1 + profit_percent/100), 2)
+
+                    await execute_limit_order(symbol, stop_loss_price, take_profit_price)
                     
                     history_data = {
                         "symbol": symbol,
@@ -727,6 +730,8 @@ async def create_order(symbol, quantity):
                                 
                     await stock_history_collection.insert_one(history_data)
                     break;
+            
+
                     
         logging.info(f"[{datetime.now()}] Buy order created for symbol: {symbol}, quantity: {quantity}")
         return entry_price
@@ -1045,18 +1050,86 @@ async def check_date_expired(option_symbol , left_amount):
         print(f"Error in date expired check: {e}")
         return False
 
+async def execute_limit_order(symbol, stop_loss_price, take_profit_price):
+    try:
+        global order_id
+        url = "https://paper-api.alpaca.markets/v2/orders"
+        payload = {
+            "side": "sell",
+            "symbol": symbol,
+            "type": "limit",
+            "qty": "1",
+            "time_in_force": "gtc",
+            "order_class": "oco",
+            "take_profit": {
+                "limit_price": take_profit_price
+                },
+            "stop_loss": {
+                "stop_price": stop_loss_price
+                }
+            }                                                      
+        ALPACA_API_KEY = os.getenv("ALPACA_API_KEY")
+        ALPACA_SECRET_KEY = os.getenv("ALPACA_SECRET_KEY")
+        headers = {
+            "accept": "application/json",
+            "Content-Type": "application/json",
+            "APCA-API-KEY-ID": ALPACA_API_KEY,
+            "APCA-API-SECRET-KEY": ALPACA_SECRET_KEY
+        }
+        response = requests.post(url, headers=headers, json=payload)
+        order_id = response.json()["id"]
+        print("order_id", order_id)
+        return response.json()
+    except Exception as e:
+        print(f"Error in execute limit order: {e}")
+        return None
+
+async def remove_limit_order():
+    try:
+        global order_id
+        url = "https://paper-api.alpaca.markets/v2/orders/" + order_id
+        ALPACA_API_KEY = os.getenv("ALPACA_API_KEY")
+        ALPACA_SECRET_KEY = os.getenv("ALPACA_SECRET_KEY")
+        headers = {
+            "accept": "application/json",
+            "Content-Type": "application/json",
+            "APCA-API-KEY-ID": ALPACA_API_KEY,
+            "APCA-API-SECRET-KEY": ALPACA_SECRET_KEY
+
+        }
+        response = requests.delete(url, headers=headers)
+        order_id = ""
+        return response.json()
+
+    except Exception as e:
+        print(f"Error in remove limit order: {e}")
+        return None
+
+async def check_open_position():
+    try:
+        global order_id
+        if order_id == "":
+            return False
+        else:
+            return True
+
+    except Exception as e:
+        print(f"Error in check open position: {e}")
+        return None 
+
+
 async def check_funtion():
     try:
         global signal_is_open
         global profit_percent
-        global loss_percent
+        global lose_percent
         global updated_entry_price
+        global symbol
 
-        if signal_is_open == True:
+        if order_id != "":
             global entry_price
             print("================entry_price=========", entry_price)
-            stop_loss = updated_entry_price * (1 - loss_percent/100)
-            take_profit = entry_price * (1 + profit_percent/100)
+            
 
             url = "https://paper-api.alpaca.markets/v2/positions/" + symbol
 
@@ -1074,19 +1147,22 @@ async def check_funtion():
             print("stop_loss" , stop_loss)
             print("take profit" , take_profit)
 
-            if float(bid_price) > entry_price:
-                updated_entry_price = float(bid_price)
+            updated_entry_price = float(bid_price)
+            stop_loss = round((updated_entry_price * (1 - lose_percent/100)), 2)
+            take_profit = round(updated_entry_price * (1 + profit_percent/100), 2)
 
-            if float(bid_price) <= stop_loss:
-                signal_is_open = False
-                sell_order = await create_sell_order(symbol)
-                return "SELL_STOP_LOSS"
-            elif float(bid_price) >= take_profit:
-                signal_is_open = False
-                sell_order = await create_sell_order(symbol)
-                return "SELL_TAKE_PROFIT"
-            else:
-                return "HOLD"
+            await execute_limit_order(symbol, stop_loss, take_profit)
+
+            # if float(bid_price) <= stop_loss:
+            #     signal_is_open = False
+            #     sell_order = await create_sell_order(symbol)
+            #     return "SELL_STOP_LOSS"
+            # elif float(bid_price) >= take_profit:
+            #     signal_is_open = False
+            #     sell_order = await create_sell_order(symbol)
+            #     return "SELL_TAKE_PROFIT"
+            # else:
+            #     return "HOLD"
         
         return "HOLD"
     except Exception as e:
@@ -1128,4 +1204,5 @@ async def get_all_stock_data():
         return stock_data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
     
