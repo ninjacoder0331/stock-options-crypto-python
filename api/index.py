@@ -1053,12 +1053,13 @@ async def check_date_expired(option_symbol , left_amount):
 async def execute_limit_order(symbol, stop_loss_price, take_profit_price):
     try:
         global order_id
+        result = await remove_limit_order()
         url = "https://paper-api.alpaca.markets/v2/orders"
         payload = {
             "side": "sell",
             "symbol": symbol,
             "type": "limit",
-            "qty": "1",
+            "qty": "2",
             "time_in_force": "gtc",
             "order_class": "oco",
             "take_profit": {
@@ -1087,6 +1088,8 @@ async def execute_limit_order(symbol, stop_loss_price, take_profit_price):
 async def remove_limit_order():
     try:
         global order_id
+        if order_id == "":
+            return None
         url = "https://paper-api.alpaca.markets/v2/orders/" + order_id
         ALPACA_API_KEY = os.getenv("ALPACA_API_KEY")
         ALPACA_SECRET_KEY = os.getenv("ALPACA_SECRET_KEY")
@@ -1098,8 +1101,9 @@ async def remove_limit_order():
 
         }
         response = requests.delete(url, headers=headers)
-        order_id = ""
-        return response.json()
+        if response.status_code == 204:
+            return {"status": "success"}
+        return {"status": "error", "code": response.status_code}
 
     except Exception as e:
         print(f"Error in remove limit order: {e}")
@@ -1110,8 +1114,22 @@ async def check_open_position():
         global order_id
         if order_id == "":
             return False
-        else:
-            return True
+        ALPACA_API_KEY = os.getenv("ALPACA_API_KEY")
+        ALPACA_SECRET_KEY = os.getenv("ALPACA_SECRET_KEY")
+        headers = {
+            "accept": "application/json",
+            "Content-Type": "application/json",
+            "APCA-API-KEY-ID": ALPACA_API_KEY,
+            "APCA-API-SECRET-KEY": ALPACA_SECRET_KEY
+        }
+        url = "https://paper-api.alpaca.markets/v2/orders?status=open"
+        response = requests.get(url, headers=headers)
+        # print("response", response.json())
+        for order in response.json():
+            if order["id"] == order_id:
+                return True
+        order_id = ""
+        return False
 
     except Exception as e:
         print(f"Error in check open position: {e}")
@@ -1125,12 +1143,14 @@ async def check_funtion():
         global lose_percent
         global updated_entry_price
         global symbol
+        global order_id
 
-        if order_id != "":
+        check = await check_open_position()
+
+        if check == True:
             global entry_price
             print("================entry_price=========", entry_price)
             
-
             url = "https://paper-api.alpaca.markets/v2/positions/" + symbol
 
             ALPACA_API_KEY = os.getenv("ALPACA_API_KEY")
@@ -1143,13 +1163,14 @@ async def check_funtion():
             }
             response = requests.get(url, headers=headers)
             bid_price = response.json()["current_price"]
-            print("current_price", bid_price)
-            print("stop_loss" , stop_loss)
-            print("take profit" , take_profit)
+            
 
             updated_entry_price = float(bid_price)
             stop_loss = round((updated_entry_price * (1 - lose_percent/100)), 2)
             take_profit = round(updated_entry_price * (1 + profit_percent/100), 2)
+            print("current_price", bid_price)
+            print("stop_loss" , stop_loss)
+            print("take profit" , take_profit)
 
             await execute_limit_order(symbol, stop_loss, take_profit)
 
