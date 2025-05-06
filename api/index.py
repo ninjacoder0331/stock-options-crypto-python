@@ -1113,9 +1113,10 @@ async def remove_limit_order():
         print(f"Error in remove limit order: {e}")
         return None
 
+@app.get("/checkOpenPosition")
 async def check_open_position():
     try:
-        
+        global symbol
         ALPACA_API_KEY = os.getenv("ALPACA_API_KEY")
         ALPACA_SECRET_KEY = os.getenv("ALPACA_SECRET_KEY")
         headers = {
@@ -1124,13 +1125,14 @@ async def check_open_position():
             "APCA-API-KEY-ID": ALPACA_API_KEY,
             "APCA-API-SECRET-KEY": ALPACA_SECRET_KEY
         }
-        url = "https://paper-api.alpaca.markets/v2/orders?status=open"
+        url = "https://paper-api.alpaca.markets/v2/positions/" + symbol
+
         response = requests.get(url, headers=headers)
         # print("response", response.json())
-        if response.json() == []:
-            return False
-        else:
+        if response.status_code == 200:
             return True
+        else:
+            return False
 
     except Exception as e:
         print(f"Error in check open position: {e}")
