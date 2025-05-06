@@ -1115,28 +1115,22 @@ async def remove_limit_order():
 
 async def check_open_position():
     try:
-        global entry_price
-        print("check open position", entry_price)
-        if entry_price == 0:
+        
+        ALPACA_API_KEY = os.getenv("ALPACA_API_KEY")
+        ALPACA_SECRET_KEY = os.getenv("ALPACA_SECRET_KEY")
+        headers = {
+            "accept": "application/json",
+            "Content-Type": "application/json",
+            "APCA-API-KEY-ID": ALPACA_API_KEY,
+            "APCA-API-SECRET-KEY": ALPACA_SECRET_KEY
+        }
+        url = "https://paper-api.alpaca.markets/v2/orders?status=open"
+        response = requests.get(url, headers=headers)
+        # print("response", response.json())
+        if response.json() == []:
             return False
-        # ALPACA_API_KEY = os.getenv("ALPACA_API_KEY")
-        # ALPACA_SECRET_KEY = os.getenv("ALPACA_SECRET_KEY")
-        # headers = {
-        #     "accept": "application/json",
-        #     "Content-Type": "application/json",
-        #     "APCA-API-KEY-ID": ALPACA_API_KEY,
-        #     "APCA-API-SECRET-KEY": ALPACA_SECRET_KEY
-        # }
-        # url = "https://paper-api.alpaca.markets/v2/orders?status=open"
-        # response = requests.get(url, headers=headers)
-        # # print("response", response.json())
-        # for order in response.json():
-        #     if order["id"] == order_id:
-        #         return True
-        # order_id = ""
         else:
             return True
-        return False
 
     except Exception as e:
         print(f"Error in check open position: {e}")
