@@ -39,6 +39,9 @@ lose_percent = 0.3
 symbol = "UVIX"
 order_id = ""
 
+print("APIKEY", os.getenv("ALPACA_API_KEY"))
+print("APISECRET", os.getenv("ALPACA_SECRET_KEY"))
+
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -695,6 +698,7 @@ async def create_order(symbol, quantity):
         response = requests.post(url, json=payload, headers=headers)
         tradingId = response.json()["id"]
 
+
         if tradingId != "":
             await asyncio.sleep(2)
             url2 = "https://paper-api.alpaca.markets/v2/orders?status=all&symbols="+symbol
@@ -1112,6 +1116,7 @@ async def remove_limit_order():
 async def check_open_position():
     try:
         global entry_price
+        print("check open position", entry_price)
         if entry_price == 0:
             return False
         # ALPACA_API_KEY = os.getenv("ALPACA_API_KEY")
@@ -1129,6 +1134,8 @@ async def check_open_position():
         #     if order["id"] == order_id:
         #         return True
         # order_id = ""
+        else:
+            return True
         return False
 
     except Exception as e:
