@@ -1087,8 +1087,8 @@ async def execute_limit_order(symbol, stop_loss_price, take_profit_price):
 
 async def remove_limit_order():
     try:
-        global order_id
-        if order_id == "":
+        global entry_price
+        if entry_price == 0:
             return None
         url = "https://paper-api.alpaca.markets/v2/orders/" + order_id
         ALPACA_API_KEY = os.getenv("ALPACA_API_KEY")
