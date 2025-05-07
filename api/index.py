@@ -1063,7 +1063,7 @@ async def execute_limit_order(symbol, stop_loss_price, take_profit_price):
             "side": "sell",
             "symbol": symbol,
             "type": "limit",
-            "qty": "2",
+            "qty": "100",
             "time_in_force": "gtc",
             "order_class": "oco",
             "take_profit": {
