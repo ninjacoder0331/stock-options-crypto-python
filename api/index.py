@@ -33,6 +33,7 @@ app = FastAPI()
 
 entry_price = 0
 updated_entry_price = 0
+
 signal_is_open = False
 profit_percent = 2
 lose_percent = 0.3
@@ -1172,7 +1173,7 @@ async def check_funtion():
             if entry_price < updated_entry_price:
                 entry_price = updated_entry_price
 
-            stop_loss = round((entry_price * (1 - lose_percent/100)), 2)
+            stop_loss = round((updated_entry_price * (1 - lose_percent/100)), 2)
             take_profit = round(updated_entry_price * (1 + profit_percent/100), 2)
             print("current_price", bid_price)
             print("stop_loss" , stop_loss)
