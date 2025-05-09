@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from .routes import auth
 from .routes import trader
 from .routes import brokerage
-from .globals import Profit, Loss, buyPrice, update_profit_loss, update_buy_price, get_global_variables
+from .globals import Profit, Loss
 import os
 import re
 import asyncio
@@ -18,10 +18,7 @@ from zoneinfo import ZoneInfo
 from .routes.utils import parse_option_date
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import logging
-import time
-import websocket
-import json
-import threading
+
 from typing import Dict, Set, List, Optional
 
 logging.basicConfig(level=logging.INFO)
