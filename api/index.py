@@ -1206,27 +1206,27 @@ async def check_funtion():
         print(f"Error in function: {str(e)}")
         return "Error occurred"
 
-scheduler = AsyncIOScheduler()
+# scheduler = AsyncIOScheduler()
 
-scheduler.add_job(
-    check_funtion,
-    trigger='interval',
-    seconds=60,     # Run every 5 seconds
-    timezone=ZoneInfo("America/New_York"),  # ET timezone
-    misfire_grace_time=None  # Optional: handle misfired jobs
-)
+# scheduler.add_job(
+#     check_funtion,
+#     trigger='interval',
+#     seconds=60,     # Run every 5 seconds
+#     timezone=ZoneInfo("America/New_York"),  # ET timezone
+#     misfire_grace_time=None  # Optional: handle misfired jobs
+# )
 
-# Start the scheduler when the application starts
-@app.on_event("startup")
-async def start_scheduler():
-    scheduler.start()
-    # Initialize global variables
-    await update_profit_loss_from_db()
+# # Start the scheduler when the application starts
+# @app.on_event("startup")
+# async def start_scheduler():
+#     scheduler.start()
+#     # Initialize global variables
+#     await update_profit_loss_from_db()
 
-# Shutdown the scheduler when the application stops
-@app.on_event("shutdown")
-async def shutdown_scheduler():
-    scheduler.shutdown()
+# # Shutdown the scheduler when the application stops
+# @app.on_event("shutdown")
+# async def shutdown_scheduler():
+#     scheduler.shutdown()
 
 @app.get("/getAllStockData")
 async def get_all_stock_data():
