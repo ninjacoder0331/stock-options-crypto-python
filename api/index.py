@@ -1149,6 +1149,7 @@ async def check_funtion():
         global updated_entry_price
         global symbol
         global order_id
+        global number_of_times
 
         check = await check_open_position()
 
@@ -1174,7 +1175,7 @@ async def check_funtion():
             if entry_price < updated_entry_price:
                 entry_price = updated_entry_price
 
-            global number_of_times
+            
 
             if number_of_times <= 4:
                 stop_loss = round((updated_entry_price * (1 - lose_percent/100)), 2)
@@ -1199,7 +1200,6 @@ async def check_funtion():
             # else:
             #     return "HOLD"
         else:
-            global number_of_times
             number_of_times = 0
         return "HOLD"
     except Exception as e:
