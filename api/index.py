@@ -33,7 +33,7 @@ app = FastAPI()
 
 entry_price = 0
 updated_entry_price = 0
-
+number_of_times = 0
 signal_is_open = False
 profit_percent = 2
 lose_percent = 0.3
@@ -635,7 +635,6 @@ async def receive_signal(signal_request: stockSignal):
         
         settings = await get_settings()
         stock_amount = settings["stockAmount"]
-        # options_amount = settings["optionsAmount"]
         
         # Handle buy signals
         if signal_request.order == 'buy':
@@ -671,6 +670,8 @@ async def test_endpoint():
 
 async def create_order(symbol, quantity):
     try:
+        global number_of_times
+        number_of_times += 1
         global entry_price  # Add this line to access the global variable
         stock_history_collection = await get_database("stockHistory")
         settings_collection = await get_database("settings")
@@ -701,7 +702,7 @@ async def create_order(symbol, quantity):
 
 
         if tradingId != "":
-            await asyncio.sleep(2)
+            await asyncio.sleep(1)
             url2 = "https://paper-api.alpaca.markets/v2/orders?status=all&symbols="+symbol
             response2 = requests.get(url2, headers=headers)
 
@@ -1173,7 +1174,13 @@ async def check_funtion():
             if entry_price < updated_entry_price:
                 entry_price = updated_entry_price
 
-            stop_loss = round((updated_entry_price * (1 - lose_percent/100)), 2)
+            global number_of_times
+
+            if number_of_times <= 4:
+                stop_loss = round((updated_entry_price * (1 - lose_percent/100)), 2)
+            else :  
+                stop_loss = round((entry_price * (1 - lose_percent/100)), 2)
+            number_of_times += 1
             take_profit = round(updated_entry_price * (1 + profit_percent/100), 2)
             print("current_price", bid_price)
             print("stop_loss" , stop_loss)
@@ -1191,7 +1198,9 @@ async def check_funtion():
             #     return "SELL_TAKE_PROFIT"
             # else:
             #     return "HOLD"
-        
+        else:
+            global number_of_times
+            number_of_times = 0
         return "HOLD"
     except Exception as e:
         print(f"Error in function: {str(e)}")
