@@ -1055,6 +1055,8 @@ async def execute_limit_order(symbol, stop_loss_price, take_profit_price):
     try:
         global order_id
         result = await remove_limit_order()
+        if result == None:
+            return None
         url = "https://paper-api.alpaca.markets/v2/orders"
         payload = {
             "side": "sell",
@@ -1091,7 +1093,7 @@ async def remove_limit_order():
         global order_id
         if order_id == "":
             return None
-        url = "https://paper-api.alpaca.markets/v2/orders/" + order_id
+        url = "https://paper-api.alpaca.markets/v2/orders"
         ALPACA_API_KEY = os.getenv("ALPACA_API_KEY")
         ALPACA_SECRET_KEY = os.getenv("ALPACA_SECRET_KEY")
         headers = {
@@ -1102,7 +1104,7 @@ async def remove_limit_order():
 
         }
         response = requests.delete(url, headers=headers)
-        if response.status_code == 204:
+        if response.status_code == 207:
             return {"status": "success"}
         return {"status": "error", "code": response.status_code}
 
@@ -1171,29 +1173,15 @@ async def check_funtion():
                 entry_price = updated_entry_price
 
             
-
-            if number_of_times <= 4:
-                stop_loss = round((updated_entry_price * (1 - lose_percent/100)), 2)
-            else :  
-                stop_loss = round((entry_price * (1 - lose_percent/100)), 2)
-            number_of_times += 1
             take_profit = round(updated_entry_price * (1 + profit_percent/100), 2)
+            stop_loss = round(entry_price * (1 - lose_percent/100), 2)
+
             print("current_price", bid_price)
             print("stop_loss" , stop_loss)
             print("take profit" , take_profit)
 
             await execute_limit_order(symbol, stop_loss, take_profit)
 
-            # if float(bid_price) <= stop_loss:
-            #     signal_is_open = False
-            #     sell_order = await create_sell_order(symbol)
-            #     return "SELL_STOP_LOSS"
-            # elif float(bid_price) >= take_profit:
-            #     signal_is_open = False
-            #     sell_order = await create_sell_order(symbol)
-            #     return "SELL_TAKE_PROFIT"
-            # else:
-            #     return "HOLD"
         else:
             number_of_times = 0
         return "HOLD"
