@@ -36,10 +36,7 @@ lose_percent = 0.3
 symbol = "UVIX"
 order_id = ""
 
-alpaca_key = os.getenv("ALPACA_API_KEY")
-
-print("alpaca_key", alpaca_key)
-
+check_in_order_status = False
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -667,8 +664,8 @@ async def test_endpoint():
 
 async def create_order(symbol, quantity):
     try:
-        global number_of_times
-        number_of_times += 1
+        global check_in_order_status
+        check_in_order_status = True
         global entry_price  # Add this line to access the global variable
         stock_history_collection = await get_database("stockHistory")
         settings_collection = await get_database("settings")
@@ -699,7 +696,7 @@ async def create_order(symbol, quantity):
 
 
         if tradingId != "":
-            await asyncio.sleep(2)
+            await asyncio.sleep(1.5)
             url2 = "https://paper-api.alpaca.markets/v2/orders?status=all&symbols="+symbol
             response2 = requests.get(url2, headers=headers)
 
@@ -714,6 +711,10 @@ async def create_order(symbol, quantity):
 
                     stop_loss_price = round((updated_entry_price * (1 - lose_percent/100)), 2)
                     take_profit_price = round(updated_entry_price * (1 + profit_percent/100), 2)
+
+                    print("entry_price", entry_price)
+                    print("stop_loss_price", stop_loss_price)
+                    print("take_profit_price", take_profit_price)
 
                     await execute_limit_order(symbol, stop_loss_price, take_profit_price)
                     
@@ -732,6 +733,7 @@ async def create_order(symbol, quantity):
                     print("buy order is excuted" , entry_price)
                                 
                     await stock_history_collection.insert_one(history_data)
+                    check_in_order_status = False
                     break;
             
 
@@ -1059,19 +1061,14 @@ async def execute_limit_order(symbol, stop_loss_price, take_profit_price):
         result = await remove_limit_order()
         url = "https://paper-api.alpaca.markets/v2/orders"
         payload = {
-            "side": "sell",
+            "type": "stop",
+            "time_in_force": "day",
             "symbol": symbol,
-            "type": "limit",
             "qty": "100",
-            "time_in_force": "gtc",
-            "order_class": "oco",
-            "take_profit": {
-                "limit_price": take_profit_price
-                },
-            "stop_loss": {
-                "stop_price": stop_loss_price
-                }
-            }                                                      
+            "side": "sell",
+            "stop_price": stop_loss_price
+        }
+        print("===========payload======", payload)
         ALPACA_API_KEY = os.getenv("ALPACA_API_KEY")
         ALPACA_SECRET_KEY = os.getenv("ALPACA_SECRET_KEY")
         headers = {
@@ -1091,8 +1088,6 @@ async def execute_limit_order(symbol, stop_loss_price, take_profit_price):
 async def remove_limit_order():
     try:
         global order_id
-        if order_id == "":
-            return None
         url = "https://paper-api.alpaca.markets/v2/orders"
         ALPACA_API_KEY = os.getenv("ALPACA_API_KEY")
         ALPACA_SECRET_KEY = os.getenv("ALPACA_SECRET_KEY")
@@ -1131,6 +1126,12 @@ async def check_open_position():
         if response.status_code == 200:
             return True
         else:
+            global entry_price
+            global updated_entry_price
+            global order_id
+            entry_price = 0
+            updated_entry_price = 0
+            order_id = ""
             return False
 
     except Exception as e:
@@ -1147,6 +1148,11 @@ async def check_funtion():
         global symbol
         global order_id
         global number_of_times
+        global check_in_order_status
+
+        if check_in_order_status == True:
+            print("check_in_order_status", check_in_order_status)
+            return
 
         check = await check_open_position()
 
@@ -1183,7 +1189,7 @@ async def check_funtion():
             await execute_limit_order(symbol, stop_loss, take_profit)
 
         else:
-            number_of_times = 0
+            order_id = ""
         return "HOLD"
     except Exception as e:
         print(f"Error in function: {str(e)}")
