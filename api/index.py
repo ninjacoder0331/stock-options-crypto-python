@@ -23,7 +23,6 @@ from typing import Dict, Set, List, Optional
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
 load_dotenv()
 
 app = FastAPI()
@@ -37,6 +36,9 @@ lose_percent = 0.3
 symbol = "UVIX"
 order_id = ""
 
+alpaca_key = os.getenv("ALPACA_API_KEY")
+
+print("alpaca_key", alpaca_key)
 
 # Add CORS middleware
 app.add_middleware(
@@ -697,7 +699,7 @@ async def create_order(symbol, quantity):
 
 
         if tradingId != "":
-            await asyncio.sleep(1)
+            await asyncio.sleep(2)
             url2 = "https://paper-api.alpaca.markets/v2/orders?status=all&symbols="+symbol
             response2 = requests.get(url2, headers=headers)
 
@@ -1055,8 +1057,6 @@ async def execute_limit_order(symbol, stop_loss_price, take_profit_price):
     try:
         global order_id
         result = await remove_limit_order()
-        if result == None:
-            return None
         url = "https://paper-api.alpaca.markets/v2/orders"
         payload = {
             "side": "sell",
