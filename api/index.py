@@ -1158,6 +1158,7 @@ async def check_funtion():
 
         if check == True:
             global entry_price
+            number_of_times += 1
             print("================entry_price=========", entry_price)
             
             url = "https://paper-api.alpaca.markets/v2/positions/" + symbol
@@ -1180,7 +1181,13 @@ async def check_funtion():
 
             
             take_profit = round(updated_entry_price * (1 + profit_percent/100), 2)
-            stop_loss = round(entry_price * (1 - lose_percent/100), 2)
+            if number_of_times > 4:
+                updated_lose_percent = lose_percent - number_of_times * 0.03
+                stop_loss = round(entry_price * (1 - updated_lose_percent/100), 2)
+            else:
+                stop_loss = round(entry_price * (1 - lose_percent/100), 2)
+
+            # stop_loss = round(entry_price * (1 - lose_percent/100), 2)
 
             print("current_price", bid_price)
             print("stop_loss" , stop_loss)
@@ -1190,6 +1197,7 @@ async def check_funtion():
 
         else:
             order_id = ""
+            number_of_times = 0
         return "HOLD"
     except Exception as e:
         print(f"Error in function: {str(e)}")
