@@ -1181,9 +1181,8 @@ async def check_funtion():
 
             
             take_profit = round(updated_entry_price * (1 + profit_percent/100), 2)
-            if number_of_times > 4:
-                updated_lose_percent = lose_percent - number_of_times * 0.03
-                stop_loss = round(entry_price * (1 - updated_lose_percent/100), 2)
+            if number_of_times > 3:
+                stop_loss = round(entry_price, 2)
             else:
                 stop_loss = round(entry_price * (1 - lose_percent/100), 2)
 
