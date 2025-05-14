@@ -1204,13 +1204,13 @@ async def check_funtion():
 
 scheduler = AsyncIOScheduler()
 
-scheduler.add_job(
-    check_funtion,
-    trigger='interval',
-    seconds=60,     # Run every 5 seconds
-    timezone=ZoneInfo("America/New_York"),  # ET timezone
-    misfire_grace_time=None  # Optional: handle misfired jobs
-)
+# scheduler.add_job(
+#     check_funtion,
+#     trigger='interval',
+#     seconds=60,     # Run every 5 seconds
+#     timezone=ZoneInfo("America/New_York"),  # ET timezone
+#     misfire_grace_time=None  # Optional: handle misfired jobs
+# )
 
 # Start the scheduler when the application starts
 @app.on_event("startup")
@@ -1238,4 +1238,16 @@ async def get_all_stock_data():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
+if __name__ == "__main__":
+    scheduler = AsyncIOScheduler()
+    scheduler.add_job(
+        check_funtion,
+        trigger='interval',
+        seconds=60,
+        timezone=ZoneInfo("America/New_York"),
+        misfire_grace_time=None
+    )
+    scheduler.start()
     
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
