@@ -35,6 +35,7 @@ profit_percent = 2
 lose_percent = 0.3
 symbol = "UVIX"
 order_id = ""
+check_in_order_status = False
 
 # Add CORS middleware
 app.add_middleware(
@@ -635,6 +636,8 @@ async def receive_signal(signal_request: stockSignal):
             if check_position == False:
                 symbol = signal_request.symbol  # Remove quotes from symbol
                 price = signal_request.price
+                global check_in_order_status
+                check_in_order_status = True
                 print("symbol", symbol)
                 # Your buy order logic here
                 result = await create_order(symbol,stock_amount)
@@ -714,6 +717,8 @@ async def create_order(symbol, quantity):
                     print("take_profit_price", take_profit_price)
 
                     await execute_limit_order(symbol, stop_loss_price, take_profit_price)
+                    global check_in_order_status
+                    check_in_order_status = False
                     
                     history_data = {
                         "symbol": symbol,
@@ -1064,7 +1069,6 @@ async def execute_limit_order(symbol, stop_loss_price, take_profit_price):
             "side": "sell",
             "stop_price": stop_loss_price
         }
-        print("===========payload======", payload)
         ALPACA_API_KEY = os.getenv("ALPACA_API_KEY")
         ALPACA_SECRET_KEY = os.getenv("ALPACA_SECRET_KEY")
         headers = {
@@ -1073,10 +1077,22 @@ async def execute_limit_order(symbol, stop_loss_price, take_profit_price):
             "APCA-API-KEY-ID": ALPACA_API_KEY,
             "APCA-API-SECRET-KEY": ALPACA_SECRET_KEY
         }
+        print("===========headers======", headers)
         response = requests.post(url, headers=headers, json=payload)
-        order_id = response.json()["id"]
+        
+        if response.status_code != 200:
+            print(f"Failed to create order. Status code: {response.status_code}")
+            print(f"Response: {response.text}")
+            return None
+            
+        response_data = response.json()
+        if 'id' not in response_data:
+            print(f"Response missing 'id' field: {response_data}")
+            return None
+            
+        order_id = response_data["id"]
         print("order_id", order_id)
-        return response.json()
+        return response_data
     except Exception as e:
         print(f"Error in execute limit order: {e}")
         return None
@@ -1092,16 +1108,13 @@ async def remove_limit_order():
             "Content-Type": "application/json",
             "APCA-API-KEY-ID": ALPACA_API_KEY,
             "APCA-API-SECRET-KEY": ALPACA_SECRET_KEY
-
         }
-        response = requests.delete(url, headers=headers)
-        if response.status_code == 207:
-            return {"status": "success"}
-        return {"status": "error", "code": response.status_code}
 
-    except Exception as e:
+        response = requests.delete(url, headers=headers)
+        return {"status": "success"}
+    except Exception as e: 
         print(f"Error in remove limit order: {e}")
-        return None
+        return {"status": "error"}
 
 @app.get("/checkOpenPosition")
 async def check_open_position():
@@ -1144,6 +1157,11 @@ async def check_funtion():
         global symbol
         global order_id
         global number_of_times
+        global check_in_order_status
+
+        if check_in_order_status == True:
+            return
+
         check = await check_open_position()
 
         if check == True:
