@@ -36,7 +36,6 @@ lose_percent = 0.3
 symbol = "UVIX"
 order_id = ""
 
-check_in_order_status = False
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -664,8 +663,6 @@ async def test_endpoint():
 
 async def create_order(symbol, quantity):
     try:
-        global check_in_order_status
-        check_in_order_status = True
         global entry_price  # Add this line to access the global variable
         stock_history_collection = await get_database("stockHistory")
         settings_collection = await get_database("settings")
@@ -733,7 +730,6 @@ async def create_order(symbol, quantity):
                     print("buy order is excuted" , entry_price)
                                 
                     await stock_history_collection.insert_one(history_data)
-                    check_in_order_status = False
                     break;
             
 
@@ -1148,12 +1144,6 @@ async def check_funtion():
         global symbol
         global order_id
         global number_of_times
-        global check_in_order_status
-
-        if check_in_order_status == True:
-            print("check_in_order_status", check_in_order_status)
-            return
-
         check = await check_open_position()
 
         if check == True:
@@ -1181,12 +1171,7 @@ async def check_funtion():
 
             
             take_profit = round(updated_entry_price * (1 + profit_percent/100), 2)
-            if number_of_times > 3:
-                stop_loss = round(entry_price, 2)
-            else:
-                stop_loss = round(entry_price * (1 - lose_percent/100), 2)
-
-            # stop_loss = round(entry_price * (1 - lose_percent/100), 2)
+            stop_loss = round(entry_price * (1 - lose_percent/100), 2)
 
             print("current_price", bid_price)
             print("stop_loss" , stop_loss)
@@ -1204,15 +1189,6 @@ async def check_funtion():
 
 scheduler = AsyncIOScheduler()
 
-# scheduler.add_job(
-#     check_funtion,
-#     trigger='interval',
-#     seconds=60,     # Run every 5 seconds
-#     timezone=ZoneInfo("America/New_York"),  # ET timezone
-#     misfire_grace_time=None  # Optional: handle misfired jobs
-# )
-
-# Start the scheduler when the application starts
 @app.on_event("startup")
 async def start_scheduler():
     scheduler.start()
@@ -1223,6 +1199,14 @@ async def start_scheduler():
 @app.on_event("shutdown")
 async def shutdown_scheduler():
     scheduler.shutdown()
+
+scheduler.add_job(
+        check_funtion,
+        trigger='interval',
+        seconds=60,
+        timezone=ZoneInfo("America/New_York"),
+        misfire_grace_time=None
+    )
 
 @app.get("/getAllStockData")
 async def get_all_stock_data():
@@ -1238,16 +1222,3 @@ async def get_all_stock_data():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
-if __name__ == "__main__":
-    scheduler = AsyncIOScheduler()
-    scheduler.add_job(
-        check_funtion,
-        trigger='interval',
-        seconds=60,
-        timezone=ZoneInfo("America/New_York"),
-        misfire_grace_time=None
-    )
-    scheduler.start()
-    
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
