@@ -36,6 +36,7 @@ lose_percent = 0.3
 symbol = "UVIX"
 order_id = ""
 check_in_order_status = False
+all_sell_stop = False
 
 # Add CORS middleware
 app.add_middleware(
@@ -1147,7 +1148,28 @@ async def check_open_position():
         print(f"Error in check open position: {e}")
         return None 
 
+class StopSell(BaseModel):
+    symbol: str
 
+@app.post("/stopSell")
+async def stop_sell(stopSell: StopSell):
+    try:
+        print("stopSell", stopSell)
+        global all_sell_stop
+        all_sell_stop = True
+        await remove_limit_order()
+        return await check_open_position(symbol)
+    except Exception as e:
+        print(f"Error in check open position: {e}")
+        return None
+
+@app.post("/startSell")
+async def start_sell():
+    global all_sell_stop
+    all_sell_stop = False
+    await check_funtion()
+    return "OK"
+    
 async def check_funtion():
     try:
         global signal_is_open
@@ -1158,6 +1180,12 @@ async def check_funtion():
         global order_id
         global number_of_times
         global check_in_order_status
+        global all_sell_stop
+
+        print("all_sell_stop", all_sell_stop)
+
+        if all_sell_stop == True:
+            return
 
         if check_in_order_status == True:
             return
