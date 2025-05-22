@@ -1169,7 +1169,35 @@ async def start_sell():
     all_sell_stop = False
     await check_funtion()
     return "OK"
-    
+
+@app.post("/sell_all_directly")
+async def sell_all_directly():
+    global all_sell_stop
+    all_sell_stop = True
+    await remove_limit_order()
+
+    url = "https://paper-api.alpaca.markets/v2/orders"
+    payload = {
+        "type": "market",
+        "time_in_force": "day",
+        "symbol": symbol,
+        "qty": "100",
+        "side": "sell",
+    }
+    ALPACA_API_KEY = os.getenv("ALPACA_API_KEY")
+    ALPACA_SECRET_KEY = os.getenv("ALPACA_SECRET_KEY")
+    headers = {
+        "accept": "application/json",
+        "Content-Type": "application/json",
+        "APCA-API-KEY-ID": ALPACA_API_KEY,
+        "APCA-API-SECRET-KEY": ALPACA_SECRET_KEY
+    }
+    print("===========headers======", headers)
+    response = requests.post(url, headers=headers, json=payload)
+    all_sell_stop = False
+    print("all_sell_stop", all_sell_stop)
+    return "OK"
+
 async def check_funtion():
     try:
         global signal_is_open
