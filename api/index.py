@@ -614,7 +614,7 @@ async def test_endpoint():
 class stockSignal(BaseModel):
     order : str
     symbol : str
-    price : str
+    qty : int
 
 # for stock trading
 @app.post("/signal")
@@ -629,7 +629,7 @@ async def receive_signal(signal_request: stockSignal):
             return {"message": "Stock trading is not started"}
         
         settings = await get_settings()
-        stock_amount = settings["stockAmount"]
+        stock_amount = signal_request.qty
         
         # Handle buy signals
         if signal_request.order == 'buy':
@@ -637,8 +637,8 @@ async def receive_signal(signal_request: stockSignal):
             if check_position == False:
                 symbol = signal_request.symbol  # Remove quotes from symbol
                 price = signal_request.price
-                global check_in_order_status
-                check_in_order_status = True
+                # global check_in_order_status
+                # check_in_order_status = True
                 print("symbol", symbol)
                 # Your buy order logic here
                 result = await create_order(symbol,stock_amount)
@@ -648,7 +648,6 @@ async def receive_signal(signal_request: stockSignal):
         
         # Handle sell signals
         elif signal_request.order == 'sell':
-            return {"message": "Sell order already processed", "sell_result->": "already_processed"}
             # Your sell order logic here
             # print("sellOrder--------->occured")
             symbol = signal_request.symbol  # Remove quotes from symbol
@@ -717,9 +716,9 @@ async def create_order(symbol, quantity):
                     print("stop_loss_price", stop_loss_price)
                     print("take_profit_price", take_profit_price)
 
-                    await execute_limit_order(symbol, stop_loss_price, take_profit_price)
-                    global check_in_order_status
-                    check_in_order_status = False
+                    # await execute_limit_order(symbol, stop_loss_price, take_profit_price)
+                    # global check_in_order_status
+                    # check_in_order_status = False
                     
                     history_data = {
                         "symbol": symbol,
@@ -746,7 +745,7 @@ async def create_order(symbol, quantity):
         return None
 
 
-async def create_sell_order(symbol):
+async def create_sell_order(symbol , stock_amount):
     try:
         global entry_price
         global updated_entry_price
@@ -761,7 +760,7 @@ async def create_sell_order(symbol):
         
         settings_collection = await get_database("settings")
         settings = await settings_collection.find_one({})
-        stock_amount = settings["stockAmount"]
+        # stock_amount = settings["stockAmount"]
         
         if not stock_history:
             return {"message": "No open position found for this symbol", "status": "not_found"}
@@ -1263,36 +1262,117 @@ async def check_funtion():
 
 scheduler = AsyncIOScheduler()
 
-@app.on_event("startup")
-async def start_scheduler():
-    scheduler.start()
-    # Initialize global variables
-    await update_profit_loss_from_db()
+# @app.on_event("startup")
+# async def start_scheduler():
+#     scheduler.start()
+#     # Initialize global variables
+#     await update_profit_loss_from_db()
 
 # Shutdown the scheduler when the application stops
-@app.on_event("shutdown")
-async def shutdown_scheduler():
-    scheduler.shutdown()
+# @app.on_event("shutdown")
+# async def shutdown_scheduler():
+#     scheduler.shutdown()
 
-scheduler.add_job(
-        check_funtion,
-        trigger='interval',
-        seconds=60,
-        timezone=ZoneInfo("America/New_York"),
-        misfire_grace_time=None
-    )
+# scheduler.add_job(
+#         check_funtion,
+#         trigger='interval',
+#         seconds=60,
+#         timezone=ZoneInfo("America/New_York"),
+#         misfire_grace_time=None
+#     )
 
-@app.get("/getAllStockData")
-async def get_all_stock_data():
-    try:
-        stock_history_collection = await get_database("stockHistory")
-        stock_data = await stock_history_collection.find().to_list(1000)
+# @app.get("/getAllStockData")
+# async def get_all_stock_data():
+#     try:
+#         stock_history_collection = await get_database("stockHistory")
+#         stock_data = await stock_history_collection.find().to_list(1000)
         
-        # Convert ObjectId to string for JSON serialization
-        for stock in stock_data:
-            stock["_id"] = str(stock["_id"])
+#         # Convert ObjectId to string for JSON serialization
+#         for stock in stock_data:
+#             stock["_id"] = str(stock["_id"])
             
-        return stock_data
+#         return stock_data
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
+
+class BuyOrder(BaseModel):
+    symbol: str
+    qty: int
+
+@app.post("/buyOrder")
+async def buy_order(buyOrder: BuyOrder):
+    try:
+        market_time = await check_market_time()
+        if market_time == False:
+            return "Market is not open"
+        
+        print("buyOrder", buyOrder)
+        alpaca_api = os.getenv("ALPACA_API_KEY")
+        alpaca_secret = os.getenv("ALPACA_SECRET_KEY")
+
+        url = "https://paper-api.alpaca.markets/v2/orders"
+
+        payload = {
+            "type": "market",
+            "time_in_force": "day",
+            "symbol": buyOrder.symbol,
+            "qty": buyOrder.qty,
+            "side": "buy"
+        }
+        headers = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "APCA-API-KEY-ID": alpaca_api,
+            "APCA-API-SECRET-KEY": alpaca_secret
+        }
+
+        response = requests.post(url, json=payload, headers=headers)
+        print("response", response.json())
+        if response.status_code == 200:
+            return "Buy order created successfully"
+        else:
+            return "Error occurred"
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    
+        print(f"Error in buy order: {e}")
+        return "Error occurred"
+
+class SellOrder(BaseModel):
+    symbol: str
+    qty: int
+
+@app.post("/sellOrder")
+async def sell_order(sellOrder: SellOrder):
+    try:
+        print("sellOrder", sellOrder)
+        market_time = await check_market_time()
+        if market_time == False:
+            return "Market is not open"
+        
+        alpaca_api = os.getenv("ALPACA_API_KEY")
+        alpaca_secret = os.getenv("ALPACA_SECRET_KEY")
+
+        url = "https://paper-api.alpaca.markets/v2/orders"
+
+        payload = {
+            "type": "market",
+            "time_in_force": "day",
+            "symbol": sellOrder.symbol,
+            "qty": sellOrder.qty,
+            "side": "sell"
+        }
+        headers = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "APCA-API-KEY-ID": alpaca_api,
+            "APCA-API-SECRET-KEY": alpaca_secret
+        }
+
+        response = requests.post(url, json=payload, headers=headers)
+        print("response", response.json())
+        if response.status_code == 200:
+            return "Sell order created successfully"
+        else:
+            return "Error occurred"
+    except Exception as e:
+        print(f"Error in sell order: {e}")
+        return "Error occurred"
