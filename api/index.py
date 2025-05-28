@@ -1301,11 +1301,7 @@ class BuyOrder(BaseModel):
 
 @app.post("/buyOrder")
 async def buy_order(buyOrder: BuyOrder):
-    try:
-        market_time = await check_market_time()
-        if market_time == False:
-            return "Market is not open"
-        
+    try:        
         print("buyOrder", buyOrder)
         alpaca_api = os.getenv("ALPACA_API_KEY")
         alpaca_secret = os.getenv("ALPACA_SECRET_KEY")
@@ -1342,12 +1338,7 @@ class SellOrder(BaseModel):
 
 @app.post("/sellOrder")
 async def sell_order(sellOrder: SellOrder):
-    try:
-        print("sellOrder", sellOrder)
-        market_time = await check_market_time()
-        if market_time == False:
-            return "Market is not open"
-        
+    try:        
         alpaca_api = os.getenv("ALPACA_API_KEY")
         alpaca_secret = os.getenv("ALPACA_SECRET_KEY")
 
